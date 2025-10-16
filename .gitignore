@@ -1,0 +1,14 @@
+node_modules
+.next
+.env
+*.db
+*.sqlite
+prisma/dev.db
+*.zip
+node_modules
+.next
+.env
+*.db
+*.sqlite
+prisma/dev.db
+*.zip
