@@ -1,6 +1,12 @@
-// src/app/(dashboard)/layout.tsx
 import Link from "next/link";
+import type { Route } from "next";
 type Locale = "es" | "en";
+
+const loginHref = (locale: Locale): Route =>
+  (locale === "es" ? "/es/login" : "/en/login") as Route;
+
+const registerHref = (locale: Locale): Route =>
+  (locale === "es" ? "/es/register" : "/en/register") as Route;
 
 export default function Layout({
   children,
@@ -13,20 +19,8 @@ export default function Layout({
 
   return (
     <header>
-      <Link
-        className="btn"
-        href={{ pathname: "/[locale]/login", query: { locale } }}
-      >
-        Entrar
-      </Link>
-
-      <Link
-        className="btn"
-        href={{ pathname: "/[locale]/register", query: { locale } }}
-      >
-        Crear cuenta
-      </Link>
+      <Link className="btn" href={loginHref(locale)}>Entrar</Link>
+      <Link className="btn" href={registerHref(locale)}>Crear cuenta</Link>
     </header>
   );
 }
-  
