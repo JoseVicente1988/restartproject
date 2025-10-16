@@ -15,6 +15,7 @@ export function setCookie(
     secure?: boolean;
     sameSite?: "lax" | "strict" | "none";
     maxAge?: number; // segundos
+    domain?: string;
   } = {}
 ) {
   const {
@@ -23,7 +24,9 @@ export function setCookie(
     secure = true,
     sameSite = "lax",
     maxAge,
+    domain,
   } = opts;
+
   cookies().set({
     name,
     value,
@@ -32,10 +35,28 @@ export function setCookie(
     secure,
     sameSite,
     ...(typeof maxAge === "number" ? { maxAge } : {}),
+    ...(domain ? { domain } : {}),
   });
 }
 
-export function deleteCookie(name: string, path = "/") {
+export function deleteCookie(name: string, path = "/", domain?: string) {
   // En App Router, borrar = set vacío con maxAge=0
-  cookies().set({ name, value: "", path, maxAge: 0 });
+  cookies().set({
+    name,
+    value: "",
+    path,
+    maxAge: 0,
+    ...(domain ? { domain } : {}),
+  });
+}
+
+/** Helpers de autenticación (ajusta el nombre si usas otro) */
+export const AUTH_COOKIE = "token";
+
+export function setAuthCookie(token: string, maxAgeSeconds = 60 * 60 * 24 * 7) {
+  setCookie(AUTH_COOKIE, token, { maxAge: maxAgeSeconds, httpOnly: true, secure: true, sameSite: "lax", path: "/" });
+}
+
+export function clearAuthCookie() {
+  deleteCookie(AUTH_COOKIE, "/");
 }
