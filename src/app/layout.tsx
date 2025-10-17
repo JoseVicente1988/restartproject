@@ -1,9 +1,11 @@
+import "./globals.css";
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // Tema guardado en localStorage (client) con fallback a "pastel"
+  const theme = "pastel";
   return (
     <html lang="es">
-      <body style={{ margin: 0, fontFamily: "system-ui, Segoe UI, Roboto, Arial" }}>
-        {children}
-      </body>
+      <body data-theme={theme}>{children}</body>
     </html>
   );
 }
