@@ -1,10 +1,13 @@
 import "./globals.css";
+import SettingsMenu from "@/components/SettingsMenu";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const theme = "pastel"; // fallback; el cliente lo cambia y guarda en localStorage
   return (
     <html lang="es">
-      <body data-theme={theme}>{children}</body>
+      <body className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition">
+        <SettingsMenu />
+        {children}
+      </body>
     </html>
   );
 }
