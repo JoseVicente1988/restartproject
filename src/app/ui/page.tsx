@@ -46,10 +46,12 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen grid place-items-center p-4">
-      <div className="w-full max-w-lg rounded-2xl border border-[var(--border)] shadow-[0_10px_60px_rgba(0,0,0,.35)] bg-[var(--card)] p-6">
-        <h1 className="text-3xl font-extrabold mb-2">GroFriends</h1>
-        <p className="text-[var(--muted)] mb-6">Listas, metas, feed y amigos — rápido y sin humo.</p>
+    <div className="min-h-screen grid place-items-center p-4 bg-grad">
+      <div className="login-card">
+        <div className="login-header">
+          <h1>GroFriends</h1>
+          <p>Listas, metas, feed y amigos — rápido y sin humo.</p>
+        </div>
 
         <form onSubmit={onSubmit} className="space-y-3">
           <input
@@ -57,37 +59,26 @@ export default function LoginPage() {
             type="email"
             value={email}
             onChange={e=>setEmail(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg bg-[#0f1116] text-[var(--ink)] border border-[var(--border)]"
-            required
+            className="inp" required
           />
           <input
-            placeholder="Password"
+            placeholder="Password (min 8)"
             type="password"
             value={password}
             onChange={e=>setPassword(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg bg-[#0f1116] text-[var(--ink)] border border-[var(--border)]"
-            required
-            minLength={8}
+            className="inp" required minLength={8}
           />
-          <div className="flex gap-2 pt-2">
-            <button
-              disabled={busy}
-              className="px-4 py-2 rounded-lg font-bold bg-[var(--acc)] text-[#082431]"
-            >
+          <div className="btn-row">
+            <button disabled={busy} className="btn-primary">
               {busy ? "…" : "Entrar"}
             </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={onRegister}
-              className="px-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--chip)] text-[var(--ink)]"
-            >
+            <button type="button" disabled={busy} onClick={onRegister} className="btn-ghost">
               Crear cuenta
             </button>
           </div>
         </form>
 
-        {msg && <div className="mt-4 text-sm">{msg}</div>}
+        {msg && <div className="login-msg">{msg}</div>}
       </div>
     </div>
   );

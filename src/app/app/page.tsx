@@ -14,7 +14,7 @@ type FriendRow = {
   friendEmail?: string | null;
 };
 
-const THEMES = ["pastel","dark","ocean","forest","rose","mono"] as const;
+const THEMES = ["light","sand","mint","pastel","dark","ocean","forest","rose","mono"] as const;
 type ThemeName = typeof THEMES[number];
 
 function ErrorBanner({ msg }: { msg: string }) {
@@ -28,10 +28,20 @@ function ErrorBanner({ msg }: { msg: string }) {
 
 export default function AppPage(){
   const [tab,setTab]=useState<"items"|"feed"|"goals"|"friends"|"dms">("items");
-  const [theme,setTheme]=useState<ThemeName>(() => (typeof window !== "undefined" && (localStorage.getItem("theme") as ThemeName)) || "pastel");
+  const [theme,setTheme]=useState<ThemeName>(() => {
+    if (typeof window === "undefined") return "light";
+    return (localStorage.getItem("theme") as ThemeName) || "light";
+  });
   const [msg,setMsg]=useState("");
 
-  useEffect(()=>{ document.body.setAttribute("data-theme", theme); localStorage.setItem("theme", theme); },[theme]);
+  // aplica tema + guarda preferencia
+  useEffect(()=>{
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("theme", theme);
+    // opcional: alterna clase dark solo cuando elijas "dark"
+    if (theme === "dark") document.documentElement.classList.add("dark");
+    else document.documentElement.classList.remove("dark");
+  },[theme]);
 
   /* ------------------ ITEMS ------------------ */
   const [items,setItems]=useState<Item[]>([]);
@@ -133,242 +143,252 @@ export default function AppPage(){
     }catch(e:any){ setMsg(e.message); }
   }
 
+  // ⏱️ Polling de DMs cada 2s cuando hay conversación abierta
+  useEffect(()=>{
+    if (tab !== "dms" || !dmFriend) return;
+    const t = setInterval(() => { loadDMs(true); }, 2000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, dmFriend?.id]);
+
   /* ------------------ Lifecycle ------------------ */
   useEffect(()=>{ if(tab==="items") loadItems(); if(tab==="feed") loadFeed(); if(tab==="goals") loadGoals(); if(tab==="friends" || tab==="dms") loadFriends(); },[tab]);
   useEffect(()=>{ loadItems(); },[]);
 
   return (
-    <div className="container">
-      <header className="header">
-        <div className="brand">
-          <div className="title">GroFriends</div>
-          <span className="badge">Beta</span>
-        </div>
-        <div className="toolbar">
-          <select className="select" value={theme} onChange={e=>setTheme(e.target.value as ThemeName)}>
-            {THEMES.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-          <a className="btn ghost" href="/ui">Salir</a>
-        </div>
-      </header>
-
-      <nav className="tabs">
-        <button className={`tab ${tab==="items"?"active":""}`} onClick={()=>setTab("items")}>Items</button>
-        <button className={`tab ${tab==="feed"?"active":""}`} onClick={()=>setTab("feed")}>Feed</button>
-        <button className={`tab ${tab==="goals"?"active":""}`} onClick={()=>setTab("goals")}>Metas</button>
-        <button className={`tab ${tab==="friends"?"active":""}`} onClick={()=>setTab("friends")}>Amigos</button>
-        <button className={`tab ${tab==="dms"?"active":""}`} onClick={()=>setTab("dms")}>DMs</button>
-      </nav>
-
-      {/* ITEMS */}
-      {tab==="items" && (
-        <section className="card">
-          <h2 style={{marginTop:0}}>Tu lista</h2>
-          <form onSubmit={addItem} className="row" style={{marginBottom:12}}>
-            <input className="input" value={title} onChange={e=>setTitle(e.target.value)} placeholder="Nuevo ítem" required/>
-            <input className="input" value={qty} onChange={e=>setQty(parseInt(e.target.value||"1",10))} type="number" min={1} max={9999}/>
-            <button className="btn">Añadir</button>
-          </form>
-          <ul className="list">
-            {items.map(it=> (
-              <li key={it.id} className="item">
-                <div style={{flex:1}}>
-                  <div style={{textDecoration: it.done ? "line-through":"none", fontWeight:600}}>{it.title} × {it.qty}</div>
-                  <div className="meta">{new Date(it.createdAt).toLocaleString()}</div>
-                </div>
-                <div className="row">
-                  <button className="btn" onClick={()=>toggleItem(it.id)}>{it.done ? "Desmarcar":"Hecho"}</button>
-                  <button className="btn secondary" onClick={()=>delItem(it.id)}>Borrar</button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {/* FEED con ♥ Like */}
-      {tab==="feed" && (
-        <section className="card">
-          <h2 style={{marginTop:0}}>Feed</h2>
-          <ul className="list">
-            {feed.map(p=> (
-              <li key={p.id} className="item" style={{alignItems:"flex-start"}}>
-                <div style={{flex:1}}>
-                  <strong>{p.name||p.email}</strong> — {p.content}
-                  <div className="meta">{new Date(p.createdAt).toLocaleString()}</div>
-                </div>
-                <div className="row">
-                  <button className="btn" onClick={()=>toggleLike(p.id)}>♥ {p.likeCount}</button>
-                  <span className="badge">💬 {p.commentCount}</span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {/* METAS */}
-      {tab==="goals" && (
-        <section className="card">
-          <div className="row" style={{justifyContent:"space-between"}}>
-            <h2 style={{marginTop:0}}>Metas</h2>
-            <button className="btn secondary" onClick={()=>loadGoals()}>Recargar</button>
+    <div className="container" style={{padding:"16px 12px"}}>
+      <div className="shell">
+        <header className="header">
+          <div className="brand">
+            <div className="title">GroFriends</div>
+            <span className="badge">Beta</span>
           </div>
-          <ul className="list">
-            {goals.map(g=> (
-              <li key={g.id} className="item">
-                <div style={{flex:1}}>
-                  <div><strong>{g.title}</strong></div>
-                  <div className="meta">
-                    fecha: {g.targetDate ? new Date(g.targetDate).toLocaleDateString() : "—"} · {g.isPublic ? "Pública":"Privada"}
+          <div className="toolbar">
+            <select className="select" value={theme} onChange={e=>setTheme(e.target.value as ThemeName)}>
+              {THEMES.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <a className="btn ghost" href="/ui">Salir</a>
+          </div>
+        </header>
+
+        <nav className="tabs">
+          <button className={`tab ${tab==="items"?"active":""}`} onClick={()=>setTab("items")}>Items</button>
+          <button className={`tab ${tab==="feed"?"active":""}`} onClick={()=>setTab("feed")}>Feed</button>
+          <button className={`tab ${tab==="goals"?"active":""}`} onClick={()=>setTab("goals")}>Metas</button>
+          <button className={`tab ${tab==="friends"?"active":""}`} onClick={()=>setTab("friends")}>Amigos</button>
+          <button className={`tab ${tab==="dms"?"active":""}`} onClick={()=>setTab("dms")}>DMs</button>
+        </nav>
+
+        {/* ITEMS */}
+        {tab==="items" && (
+          <section className="card">
+            <h2 style={{marginTop:0}}>Tu lista</h2>
+            <form onSubmit={addItem} className="row" style={{marginBottom:12}}>
+              <input className="input" value={title} onChange={e=>setTitle(e.target.value)} placeholder="Nuevo ítem" required/>
+              <input className="input" value={qty} onChange={e=>setQty(parseInt(e.target.value||"1",10))} type="number" min={1} max={9999}/>
+              <button className="btn">Añadir</button>
+            </form>
+            <ul className="list">
+              {items.map(it=> (
+                <li key={it.id} className="item">
+                  <div style={{flex:1}}>
+                    <div style={{textDecoration: it.done ? "line-through":"none", fontWeight:600}}>{it.title} × {it.qty}</div>
+                    <div className="meta">{new Date(it.createdAt).toLocaleString()}</div>
                   </div>
-                </div>
-                {!g.isPublic && <button className="btn" onClick={()=>publishGoal(g.id)}>Publicar</button>}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+                  <div className="row">
+                    <button className="btn" onClick={()=>toggleItem(it.id)}>{it.done ? "Desmarcar":"Hecho"}</button>
+                    <button className="btn secondary" onClick={()=>delItem(it.id)}>Borrar</button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
-      {/* AMIGOS */}
-      {tab==="friends" && (
-        <section className="card">
-          <div className="row" style={{justifyContent:"space-between"}}>
-            <h2 style={{marginTop:0}}>Amigos</h2>
-            <button className="btn secondary" onClick={()=>loadFriends()} disabled={loadingFriends}>
-              {loadingFriends ? "Cargando…" : "Recargar"}
-            </button>
-          </div>
+        {/* FEED con ♥ Like */}
+        {tab==="feed" && (
+          <section className="card">
+            <h2 style={{marginTop:0}}>Feed</h2>
+            <ul className="list">
+              {feed.map(p=> (
+                <li key={p.id} className="item" style={{alignItems:"flex-start"}}>
+                  <div style={{flex:1}}>
+                    <strong>{p.name||p.email}</strong> — {p.content}
+                    <div className="meta">{new Date(p.createdAt).toLocaleString()}</div>
+                  </div>
+                  <div className="row">
+                    <button className="btn" onClick={()=>toggleLike(p.id)}>♥ {p.likeCount}</button>
+                    <span className="badge">💬 {p.commentCount}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
-          <div className="grid cols-3">
-            {/* INVITAR */}
-            <div className="card" style={{padding:12}}>
-              <h3 style={{marginTop:0}} className="muted">Invitar</h3>
-              <form onSubmit={inviteFriend} className="row">
-                <input className="input" value={inviteEmail} onChange={e=>setInviteEmail(e.target.value)} placeholder="Email del amigo" type="email" required/>
-                <button className="btn">Invitar</button>
-              </form>
+        {/* METAS */}
+        {tab==="goals" && (
+          <section className="card">
+            <div className="row" style={{justifyContent:"space-between"}}>
+              <h2 style={{marginTop:0}}>Metas</h2>
+              <button className="btn secondary" onClick={()=>loadGoals()}>Recargar</button>
+            </div>
+            <ul className="list">
+              {goals.map(g=> (
+                <li key={g.id} className="item">
+                  <div style={{flex:1}}>
+                    <div><strong>{g.title}</strong></div>
+                    <div className="meta">
+                      fecha: {g.targetDate ? new Date(g.targetDate).toLocaleDateString() : "—"} · {g.isPublic ? "Pública":"Privada"}
+                    </div>
+                  </div>
+                  {!g.isPublic && <button className="btn" onClick={()=>publishGoal(g.id)}>Publicar</button>}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {/* AMIGOS */}
+        {tab==="friends" && (
+          <section className="card">
+            <div className="row" style={{justifyContent:"space-between"}}>
+              <h2 style={{marginTop:0}}>Amigos</h2>
+              <button className="btn secondary" onClick={()=>loadFriends()} disabled={loadingFriends}>
+                {loadingFriends ? "Cargando…" : "Recargar"}
+              </button>
             </div>
 
-            {/* RECIBIDAS */}
+            <div className="grid cols-3">
+              {/* INVITAR */}
+              <div className="card" style={{padding:12}}>
+                <h3 style={{marginTop:0}} className="muted">Invitar</h3>
+                <form onSubmit={inviteFriend} className="row">
+                  <input className="input" value={inviteEmail} onChange={e=>setInviteEmail(e.target.value)} placeholder="Email del amigo" type="email" required/>
+                  <button className="btn">Invitar</button>
+                </form>
+              </div>
+
+              {/* RECIBIDAS */}
+              <div className="card" style={{padding:12}}>
+                <h3 style={{marginTop:0}} className="muted">Solicitudes recibidas</h3>
+                <ul className="list">
+                  {grouped.incoming.length===0 && <li className="item"><span className="muted">No tienes solicitudes.</span></li>}
+                  {grouped.incoming.map(f => (
+                    <li key={String(f.id)} className="item">
+                      <div style={{flex:1}}>
+                        <div style={{fontWeight:600}}>{f.friendName || f.friendEmail}</div>
+                        <div className="meta">{f.friendEmail}</div>
+                      </div>
+                      <div className="row">
+                        <button className="btn" onClick={()=>acceptFriend(f.id)}>Aceptar</button>
+                        <button className="btn secondary" onClick={()=>cancelOrRemoveFriend(f.id)}>Rechazar</button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* ENVIADAS */}
+              <div className="card" style={{padding:12}}>
+                <h3 style={{marginTop:0}} className="muted">Enviadas</h3>
+                <ul className="list">
+                  {grouped.outgoing.length===0 && <li className="item"><span className="muted">No has enviado invitaciones.</span></li>}
+                  {grouped.outgoing.map(f => (
+                    <li key={String(f.id)} className="item">
+                      <div style={{flex:1}}>
+                        <div style={{fontWeight:600}}>{f.friendName || f.friendEmail}</div>
+                        <div className="meta">{f.friendEmail}</div>
+                      </div>
+                      <button className="btn secondary" onClick={()=>cancelOrRemoveFriend(f.id)}>Cancelar</button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <div className="hr"></div>
+
+            {/* ACEPTADOS */}
             <div className="card" style={{padding:12}}>
-              <h3 style={{marginTop:0}} className="muted">Solicitudes recibidas</h3>
+              <h3 style={{marginTop:0}} className="muted">Tus amigos</h3>
               <ul className="list">
-                {grouped.incoming.length===0 && <li className="item"><span className="muted">No tienes solicitudes.</span></li>}
-                {grouped.incoming.map(f => (
+                {grouped.accepted.length===0 && <li className="item"><span className="muted">Aún no tienes amigos.</span></li>}
+                {grouped.accepted.map(f => (
                   <li key={String(f.id)} className="item">
                     <div style={{flex:1}}>
                       <div style={{fontWeight:600}}>{f.friendName || f.friendEmail}</div>
                       <div className="meta">{f.friendEmail}</div>
                     </div>
                     <div className="row">
-                      <button className="btn" onClick={()=>acceptFriend(f.id)}>Aceptar</button>
-                      <button className="btn secondary" onClick={()=>cancelOrRemoveFriend(f.id)}>Rechazar</button>
+                      <button className="btn" onClick={()=>selectDMFriend(f.friendId, (f.friendName||f.friendEmail||"Amigo"))}>Chat</button>
+                      <button className="btn ghost" onClick={()=>cancelOrRemoveFriend(f.id)}>Eliminar</button>
                     </div>
                   </li>
                 ))}
               </ul>
             </div>
+          </section>
+        )}
 
-            {/* ENVIADAS */}
-            <div className="card" style={{padding:12}}>
-              <h3 style={{marginTop:0}} className="muted">Enviadas</h3>
-              <ul className="list">
-                {grouped.outgoing.length===0 && <li className="item"><span className="muted">No has enviado invitaciones.</span></li>}
-                {grouped.outgoing.map(f => (
-                  <li key={String(f.id)} className="item">
-                    <div style={{flex:1}}>
-                      <div style={{fontWeight:600}}>{f.friendName || f.friendEmail}</div>
-                      <div className="meta">{f.friendEmail}</div>
-                    </div>
-                    <button className="btn secondary" onClick={()=>cancelOrRemoveFriend(f.id)}>Cancelar</button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          <div className="hr"></div>
-
-          {/* ACEPTADOS */}
-          <div className="card" style={{padding:12}}>
-            <h3 style={{marginTop:0}} className="muted">Tus amigos</h3>
-            <ul className="list">
-              {grouped.accepted.length===0 && <li className="item"><span className="muted">Aún no tienes amigos.</span></li>}
-              {grouped.accepted.map(f => (
-                <li key={String(f.id)} className="item">
-                  <div style={{flex:1}}>
-                    <div style={{fontWeight:600}}>{f.friendName || f.friendEmail}</div>
-                    <div className="meta">{f.friendEmail}</div>
-                  </div>
-                  <div className="row">
-                    <button className="btn" onClick={()=>selectDMFriend(f.friendId, (f.friendName||f.friendEmail||"Amigo"))}>Chat</button>
-                    <button className="btn ghost" onClick={()=>cancelOrRemoveFriend(f.id)}>Eliminar</button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-      )}
-
-      {/* DMS */}
-      {tab==="dms" && (
-        <section className="card">
-          <div className="row" style={{justifyContent:"space-between"}}>
-            <h2 style={{marginTop:0}}>Mensajes</h2>
-            <button className="btn secondary" onClick={()=>loadFriends()}>Refrescar amigos</button>
-          </div>
-
-          <div className="grid cols-2">
-            {/* Lista de amigos aceptados */}
-            <div className="card" style={{padding:12, maxHeight:380, overflow:"auto"}}>
-              <h3 className="muted" style={{marginTop:0}}>Amigos</h3>
-              <ul className="list">
-                {grouped.accepted.length===0 && <li className="item"><span className="muted">Sin amigos aún.</span></li>}
-                {grouped.accepted.map(f => (
-                  <li key={String(f.friendId)} className="item">
-                    <div style={{flex:1}}>
-                      <div style={{fontWeight:600}}>{f.friendName || f.friendEmail}</div>
-                      <div className="meta">{f.friendEmail}</div>
-                    </div>
-                    <button className="btn" onClick={()=>selectDMFriend(f.friendId, (f.friendName||f.friendEmail||"Amigo"))}>Chat</button>
-                  </li>
-                ))}
-              </ul>
+        {/* DMS */}
+        {tab==="dms" && (
+          <section className="card">
+            <div className="row" style={{justifyContent:"space-between"}}>
+              <h2 style={{marginTop:0}}>Mensajes</h2>
+              <button className="btn secondary" onClick={()=>loadFriends()}>Refrescar amigos</button>
             </div>
 
-            {/* Panel de conversación */}
-            <div className="card" style={{padding:12}}>
-              <div className="row" style={{justifyContent:"space-between"}}>
-                <span className="badge">{dmFriend ? `Hablando con: ${dmFriend.name}` : "Selecciona un amigo"}</span>
-                {dmFriend && <button className="btn secondary" onClick={()=>loadDMs(false)}>Cargar más</button>}
-              </div>
-              <div style={{height:280, overflow:"auto", marginTop:8, border:"1px solid var(--border)", borderRadius:12, padding:8, background:"#0f1116"}}>
+            <div className="grid cols-2">
+              {/* Lista de amigos aceptados */}
+              <div className="card" style={{padding:12, maxHeight:380, overflow:"auto"}}>
+                <h3 className="muted" style={{marginTop:0}}>Amigos</h3>
                 <ul className="list">
-                  {dmMsgs.map(m => (
-                    <li key={String(m.id)} className="item" style={{justifyContent: m.mine ? "flex-end" : "flex-start"}}>
-                      <div>
-                        <div>{m.text}</div>
-                        <div className="meta">{new Date(m.createdAt).toLocaleString()}</div>
+                  {grouped.accepted.length===0 && <li className="item"><span className="muted">Sin amigos aún.</span></li>}
+                  {grouped.accepted.map(f => (
+                    <li key={String(f.friendId)} className="item">
+                      <div style={{flex:1}}>
+                        <div style={{fontWeight:600}}>{f.friendName || f.friendEmail}</div>
+                        <div className="meta">{f.friendEmail}</div>
                       </div>
+                      <button className="btn" onClick={()=>selectDMFriend(f.friendId, (f.friendName||f.friendEmail||"Amigo"))}>Chat</button>
                     </li>
                   ))}
-                  {!dmMsgs.length && <li className="item"><span className="muted">No hay mensajes aún.</span></li>}
                 </ul>
               </div>
-              <form onSubmit={sendDM} className="row" style={{marginTop:8}}>
-                <input className="input" value={dmText} onChange={e=>setDmText(e.target.value)} placeholder="Escribe un mensaje…" disabled={!dmFriend} />
-                <button className="btn" disabled={!dmFriend || !dmText.trim()}>Enviar</button>
-              </form>
-            </div>
-          </div>
-        </section>
-      )}
 
-      <ErrorBanner msg={msg} />
-      <div style={{height:20}} />
-      <footer className="muted" style={{textAlign:"center"}}>Hecho con poca prisa y mucha mala leche 💅</footer>
+              {/* Panel de conversación */}
+              <div className="card" style={{padding:12}}>
+                <div className="row" style={{justifyContent:"space-between"}}>
+                  <span className="badge">{dmFriend ? `Hablando con: ${dmFriend.name}` : "Selecciona un amigo"}</span>
+                  {dmFriend && <button className="btn secondary" onClick={()=>loadDMs(false)}>Cargar más</button>}
+                </div>
+                <div style={{height:280, overflow:"auto", marginTop:8, border:"1px solid var(--border)", borderRadius:12, padding:8, background:"var(--chip)"}}>
+                  <ul className="list">
+                    {dmMsgs.map(m => (
+                      <li key={String(m.id)} className="item" style={{justifyContent: m.mine ? "flex-end" : "flex-start"}}>
+                        <div>
+                          <div>{m.text}</div>
+                          <div className="meta">{new Date(m.createdAt).toLocaleString()}</div>
+                        </div>
+                      </li>
+                    ))}
+                    {!dmMsgs.length && <li className="item"><span className="muted">No hay mensajes aún.</span></li>}
+                  </ul>
+                </div>
+                <form onSubmit={sendDM} className="row" style={{marginTop:8}}>
+                  <input className="input" value={dmText} onChange={e=>setDmText(e.target.value)} placeholder="Escribe un mensaje…" disabled={!dmFriend} />
+                  <button className="btn" disabled={!dmFriend || !dmText.trim()}>Enviar</button>
+                </form>
+              </div>
+            </div>
+          </section>
+        )}
+
+        <ErrorBanner msg={msg} />
+        <div style={{height:20}} />
+        <footer className="muted" style={{textAlign:"center"}}>Hecho con poca prisa y mucha mala leche 💅</footer>
+      </div>
     </div>
   );
 }
