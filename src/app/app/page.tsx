@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { api } from "@/src/lib/api";
 
 type Item = { id: string; title: string; qty: number; note?: string|null; done: boolean; createdAt: string };
 type Post = { id: string; content: string; createdAt: string; name?: string|null; email: string; likeCount: number; commentCount: number };
@@ -17,47 +17,13 @@ type FriendRow = {
 const THEMES = ["pastel","dark","ocean","forest","rose","mono"] as const;
 type ThemeName = typeof THEMES[number];
 
-/* ------------------ Helper API robusto ------------------ */
-async function api(path: string, init: RequestInit = {}) {
-  const hasBody = init.body !== undefined;
-  const headers = new Headers(init.headers || {});
-  if (hasBody && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
-  }
-
-  const r = await fetch(path, {
-    ...init,
-    headers,
-    credentials: "include", // cookies httpOnly
-    redirect: "follow",
-  });
-
-  if (r.status === 401) {
-    if (typeof window !== "undefined") window.location.href = "/ui";
-    throw new Error("No autorizado");
-  }
-
-  if (r.status === 204) {
-    return { ok: true };
-  }
-
-  const ct = r.headers.get("content-type") || "";
-  if (ct.includes("application/json")) {
-    const j = await r.json();
-    if (!j || typeof j !== "object") throw new Error("Respuesta JSON inválida");
-    if (!("ok" in j) || (j as any).ok !== true) {
-      const err = (j as any).error || `HTTP ${r.status}`;
-      throw new Error(err);
-    }
-    return j;
-  } else {
-    const txt = await r.text();
-    if (!r.ok) {
-      if (txt && txt.startsWith("<")) throw new Error(`HTTP ${r.status} (HTML). ¿Sesión expirada?`);
-      throw new Error(txt || `HTTP ${r.status}`);
-    }
-    return { ok: true, data: txt };
-  }
+function ErrorBanner({ msg }: { msg: string }) {
+  if (!msg) return null;
+  return (
+    <div className="card" style={{ marginTop: 12, borderColor: "var(--err)", color: "var(--err)" }}>
+      {msg}
+    </div>
+  );
 }
 
 export default function AppPage(){
@@ -400,7 +366,7 @@ export default function AppPage(){
         </section>
       )}
 
-      {msg && <div className="card" style={{marginTop:12, color:"var(--err)"}}>{msg}</div>}
+      <ErrorBanner msg={msg} />
       <div style={{height:20}} />
       <footer className="muted" style={{textAlign:"center"}}>Hecho con poca prisa y mucha mala leche 💅</footer>
     </div>
