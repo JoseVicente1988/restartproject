@@ -13,7 +13,9 @@ type Msg = {
 export default function DMPanel({ friendId }: { friendId: string }) {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [text, setText] = useState("");
-  const timer = useRef<NodeJS.Timer | null>(null);
+
+  // 👇 clave: que el tipo se adapte tanto a DOM (number) como a Node (Timeout)
+  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   async function load() {
     if (!friendId) return;
@@ -49,6 +51,7 @@ export default function DMPanel({ friendId }: { friendId: string }) {
     timer.current = setInterval(load, 2000); // 2s
     return () => {
       if (timer.current) clearInterval(timer.current);
+      timer.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [friendId]);
