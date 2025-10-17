@@ -1,11 +1,13 @@
 import "./globals.css";
+import { currentUser } from "@/lib/auth";
 import SettingsMenu from "@/components/SettingsMenu";
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const u = await currentUser().catch(() => null);
   return (
     <html lang="es">
-      <body className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition">
-        <SettingsMenu />
+      <body className="min-h-screen bg-[linear-gradient(180deg,var(--bg),#0d1016)] text-[var(--ink)]">
+        {u ? <SettingsMenu /> : null}
         {children}
       </body>
     </html>
