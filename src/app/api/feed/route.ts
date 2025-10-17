@@ -21,8 +21,8 @@ export async function GET(req: Request) {
              p."createdAt"   as "createdAt",
              u.name,
              u.email,
-             (SELECT COUNT(*) FROM "FeedLike" fl WHERE fl.postId = p.id) as "likeCount",
-             (SELECT COUNT(*) FROM "FeedComment" fc WHERE fc.postId = p.id) as "commentCount"
+             (SELECT COUNT(*) FROM "FeedLike" fl WHERE fl."postId" = p.id) as "likeCount",
+             (SELECT COUNT(*) FROM "FeedComment" fc WHERE fc."postId" = p.id) as "commentCount"
       FROM "FeedPost" p
       JOIN "User" u ON u.id = p."userId"
       ORDER BY p.id DESC
