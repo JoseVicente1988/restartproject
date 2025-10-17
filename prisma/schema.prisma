@@ -1,0 +1,165 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider     = "postgresql"
+  url          = env("DATABASE_URL")
+  relationMode = "prisma"
+}
+
+model User {
+  id           BigInt   @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  locale       String?  @default("es")
+  theme        String?  @default("pastel")
+  photoBase64  String?
+  createdAt    DateTime @default(now())
+
+  sessions Session[]
+  items    Item[]
+  goals    Goal[]
+  posts    FeedPost[]
+
+  // Relaciones inversas explícitas
+  likes    FeedLike[]    @relation("LikesByUser")
+  comments FeedComment[] @relation("CommentsByUser")
+
+  sentDMs DM[] @relation("sent")
+  recvDMs DM[] @relation("recv")
+
+  @@index([email])
+}
+
+model Session {
+  id        BigInt   @id @default(autoincrement())
+  userId    BigInt
+  token     String   @unique
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+}
+
+model Item {
+  id        BigInt   @id @default(autoincrement())
+  userId    BigInt
+  title     String
+  qty       Int      @default(1)
+  note      String?
+  done      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, done, id])
+}
+
+model Friendship {
+  id          BigInt   @id @default(autoincrement())
+  userA       BigInt
+  userB       BigInt
+  status      String
+  requestedBy BigInt
+  createdAt   DateTime @default(now())
+
+  @@unique([userA, userB])
+  @@index([status, requestedBy])
+}
+
+model Goal {
+  id         BigInt    @id @default(autoincrement())
+  userId     BigInt
+  title      String
+  targetDate DateTime?
+  isPublic   Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isPublic])
+}
+
+model FeedPost {
+  id        BigInt   @id @default(autoincrement())
+  userId    BigInt
+  goalId    BigInt?
+  content   String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Relaciones inversas con nombres que usaremos en los hijos
+  likes    FeedLike[]    @relation("LikesForPost")
+  comments FeedComment[] @relation("CommentsForPost")
+
+  @@index([userId, createdAt])
+}
+
+model FeedLike {
+  id        BigInt   @id @default(autoincrement())
+  postId    BigInt
+  userId    BigInt
+  createdAt DateTime @default(now())
+
+  // Hacia el post
+  post FeedPost @relation("LikesForPost", fields: [postId], references: [id], onDelete: Cascade)
+  // Hacia el usuario
+  user User     @relation("LikesByUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([postId])
+}
+
+model FeedComment {
+  id        BigInt   @id @default(autoincrement())
+  postId    BigInt
+  userId    BigInt
+  text      String
+  createdAt DateTime @default(now())
+
+  // Hacia el post
+  post FeedPost @relation("CommentsForPost", fields: [postId], references: [id], onDelete: Cascade)
+  // Hacia el usuario
+  user User     @relation("CommentsByUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+}
+
+model DM {
+  id         BigInt   @id @default(autoincrement())
+  senderId   BigInt
+  receiverId BigInt
+  text       String
+  createdAt  DateTime @default(now())
+
+  sender   User @relation("sent", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User @relation("recv", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([senderId, receiverId, id])
+}
+
+model Achievement {
+  id        BigInt   @id @default(autoincrement())
+  code      String   @unique
+  title     String
+  desc      String
+  createdAt DateTime @default(now())
+}
+
+model AchievementProgress {
+  id            BigInt   @id @default(autoincrement())
+  userId        BigInt
+  achievementId BigInt
+  progress      Int      @default(0)
+  achieved      Boolean  @default(false)
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, achievementId])
+  @@index([userId, achieved])
+}
