@@ -1,7 +1,7 @@
 import "./globals.css";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  // Tema guardado en localStorage (client) con fallback a "pastel"
+  // Fallback de tema; el cambio real se hace en cliente y se guarda en localStorage
   const theme = "pastel";
   return (
     <html lang="es">

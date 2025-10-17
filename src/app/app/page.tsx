@@ -5,7 +5,6 @@ import Link from "next/link";
 type Item = { id: string; title: string; qty: number; note?: string|null; done: boolean; createdAt: string };
 type Post = { id: string; content: string; createdAt: string; name?: string|null; email: string; likeCount: number; commentCount: number };
 type Goal = { id: string; title: string; targetDate?: string|null; isPublic: boolean };
-
 type FriendRow = {
   id: string | number;
   status: "pending" | "accepted" | string;
@@ -18,39 +17,81 @@ type FriendRow = {
 const THEMES = ["pastel","dark","ocean","forest","rose","mono"] as const;
 type ThemeName = typeof THEMES[number];
 
-export default function AppPage(){
-  const [tab,setTab]=useState<"items"|"feed"|"goals"|"friends">("items");
-  const [theme,setTheme]=useState<ThemeName>(() => (typeof window !== "undefined" && (localStorage.getItem("theme") as ThemeName)) || "pastel");
-
-  // ---------------------- Helpers ----------------------
-  async function api(path:string, init?:RequestInit){
-    const r=await fetch(path, { ...init, headers: { "Content-Type":"application/json" } });
-    const ct = r.headers.get("content-type")||"";
-    if (!ct.includes("application/json")) throw new Error("Respuesta no JSON");
-    const j = await r.json();
-    if (!j.ok) throw new Error(j.error || "Error");
-    return j;
+/* ------------------ Helper API robusto ------------------ */
+async function api(path: string, init: RequestInit = {}) {
+  const hasBody = init.body !== undefined;
+  const headers = new Headers(init.headers || {});
+  if (hasBody && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
   }
+
+  const r = await fetch(path, {
+    ...init,
+    headers,
+    credentials: "include", // cookies httpOnly
+    redirect: "follow",
+  });
+
+  if (r.status === 401) {
+    if (typeof window !== "undefined") window.location.href = "/ui";
+    throw new Error("No autorizado");
+  }
+
+  if (r.status === 204) {
+    return { ok: true };
+  }
+
+  const ct = r.headers.get("content-type") || "";
+  if (ct.includes("application/json")) {
+    const j = await r.json();
+    if (!j || typeof j !== "object") throw new Error("Respuesta JSON inválida");
+    if (!("ok" in j) || (j as any).ok !== true) {
+      const err = (j as any).error || `HTTP ${r.status}`;
+      throw new Error(err);
+    }
+    return j;
+  } else {
+    const txt = await r.text();
+    if (!r.ok) {
+      if (txt && txt.startsWith("<")) throw new Error(`HTTP ${r.status} (HTML). ¿Sesión expirada?`);
+      throw new Error(txt || `HTTP ${r.status}`);
+    }
+    return { ok: true, data: txt };
+  }
+}
+
+export default function AppPage(){
+  const [tab,setTab]=useState<"items"|"feed"|"goals"|"friends"|"dms">("items");
+  const [theme,setTheme]=useState<ThemeName>(() => (typeof window !== "undefined" && (localStorage.getItem("theme") as ThemeName)) || "pastel");
+  const [msg,setMsg]=useState("");
+
   useEffect(()=>{ document.body.setAttribute("data-theme", theme); localStorage.setItem("theme", theme); },[theme]);
 
-  // ---------------------- Items ----------------------
+  /* ------------------ ITEMS ------------------ */
   const [items,setItems]=useState<Item[]>([]);
   const [title,setTitle]=useState(""); const [qty,setQty]=useState(1);
-  const [msg,setMsg]=useState("");
 
   async function loadItems(){ try{ const j = await api("/api/items"); setItems(j.items); }catch(e:any){ setMsg(e.message);} }
   async function addItem(e: any){ e.preventDefault(); try{ await api("/api/items",{ method:"POST", body: JSON.stringify({ title, qty })}); setTitle(""); setQty(1); loadItems(); } catch(e:any){ setMsg(e.message); } }
   async function toggleItem(id: string){ try{ await api(`/api/items/${id}/toggle`,{ method:"POST" }); loadItems(); }catch(e:any){ setMsg(e.message);} }
   async function delItem(id: string){ try{ await api(`/api/items/${id}`,{ method:"DELETE" }); loadItems(); }catch(e:any){ setMsg(e.message);} }
 
-  // ---------------------- Feed & Goals ----------------------
+  /* ------------------ FEED (con likes) ------------------ */
   const [feed,setFeed]=useState<Post[]>([]);
-  const [goals,setGoals]=useState<Goal[]>([]);
   async function loadFeed(){ try{ const j = await api("/api/feed"); setFeed(j.posts); }catch(e:any){ setMsg(e.message);} }
+  async function toggleLike(postId: string){
+    try{
+      const j = await api(`/api/feed/${postId}/like`,{ method:"POST" });
+      setFeed(prev => prev.map(p => p.id===postId ? ({...p, likeCount: j.like_count}) : p));
+    }catch(e:any){ setMsg(e.message); }
+  }
+
+  /* ------------------ GOALS ------------------ */
+  const [goals,setGoals]=useState<Goal[]>([]);
   async function publishGoal(id: string){ try{ await api(`/api/goals/${id}/publish`,{ method:"POST" }); loadGoals(); }catch(e:any){ setMsg(e.message);} }
   async function loadGoals(){ try{ const j = await api("/api/goals"); setGoals(j.goals); }catch(e:any){ setMsg(e.message);} }
 
-  // ---------------------- Friends (UI completa) ----------------------
+  /* ------------------ FRIENDS ------------------ */
   const [inviteEmail,setInviteEmail]=useState("");
   const [friends,setFriends]=useState<FriendRow[]>([]);
   const [loadingFriends,setLoadingFriends]=useState(false);
@@ -84,34 +125,50 @@ export default function AppPage(){
     const accepted: FriendRow[] = [];
     for (const f of friends){
       if (f.status === "accepted") accepted.push(f);
-      else if (f.status === "pending"){
-        // necesitamos saber si la solicitud la envié yo o me la enviaron
-        outgoing.push(f); // por defecto
-      } else {
-        // otro estado, ignor
-      }
+      else if (f.status === "pending"){ incoming.push(f); outgoing.push(f); }
     }
-    // Si el backend no trae "requestedBy" como número comparable con mi userId,
-    // mostramos los pending en ambas listas según acción.
-    // Para UX útil: los pending aparecen en "Recibidas" y "Enviadas" con botones distintos.
-    // Si tu API ya expone requestedBy y meId, puedes separar aquí con precisión.
-
-    // Heurística: pending => si aparece botón "Aceptar" lo pondremos en Incoming,
-    // pero como necesitamos meId para saberlo, duplicamos en ambos paneles y cada acción validará en backend.
     const dedup = (arr: FriendRow[]) => {
       const seen = new Set<string>(); const out: FriendRow[] = [];
       for (const x of arr){ const k = String(x.id); if (!seen.has(k)) { seen.add(k); out.push(x); } }
       return out;
     };
-    return {
-      incoming: dedup(friends.filter(f => f.status==="pending")),   // mostrará Aceptar/Rechazar
-      outgoing: dedup(friends.filter(f => f.status==="pending")),   // mostrará Cancelar
-      accepted: dedup(accepted)
-    };
+    return { incoming: dedup(incoming), outgoing: dedup(outgoing), accepted: dedup(accepted) };
   },[friends]);
 
-  // ---------------------- Boot ----------------------
-  useEffect(()=>{ if(tab==="items") loadItems(); if(tab==="feed") loadFeed(); if(tab==="goals") loadGoals(); if(tab==="friends") loadFriends(); },[tab]);
+  /* ------------------ DMs ------------------ */
+  type DM = { id: string|number; text: string; createdAt: string; mine: boolean; senderId: string|number };
+  const [dmFriend, setDmFriend] = useState<{ id: string|number; name: string } | null>(null);
+  const [dmMsgs, setDmMsgs] = useState<DM[]>([]);
+  const [dmText, setDmText] = useState("");
+  const [dmOffset, setDmOffset] = useState(0);
+  const DM_PAGE = 20;
+
+  async function loadDMs(reset=false){
+    if (!dmFriend) return;
+    try{
+      const offset = reset ? 0 : dmOffset;
+      const j = await api(`/api/dm?friend_id=${dmFriend.id}&limit=${DM_PAGE}&offset=${offset}`);
+      const chunk: DM[] = j.messages || [];
+      if (reset){ setDmMsgs(chunk.slice().reverse()); setDmOffset(chunk.length); }
+      else { setDmMsgs(prev => [...chunk.slice().reverse(), ...prev]); setDmOffset(offset + chunk.length); }
+    }catch(e:any){ setMsg(e.message); }
+  }
+  function selectDMFriend(id: string|number, name: string){
+    setDmFriend({ id, name }); setDmMsgs([]); setDmOffset(0); loadDMs(true);
+    setTab("dms");
+  }
+  async function sendDM(e:any){
+    e.preventDefault();
+    if (!dmFriend || !dmText.trim()) return;
+    try{
+      await api("/api/dm/send",{ method:"POST", body: JSON.stringify({ friend_id: dmFriend.id, text: dmText.trim() }) });
+      setDmText("");
+      setDmOffset(0); loadDMs(true);
+    }catch(e:any){ setMsg(e.message); }
+  }
+
+  /* ------------------ Lifecycle ------------------ */
+  useEffect(()=>{ if(tab==="items") loadItems(); if(tab==="feed") loadFeed(); if(tab==="goals") loadGoals(); if(tab==="friends" || tab==="dms") loadFriends(); },[tab]);
   useEffect(()=>{ loadItems(); },[]);
 
   return (
@@ -134,6 +191,7 @@ export default function AppPage(){
         <button className={`tab ${tab==="feed"?"active":""}`} onClick={()=>setTab("feed")}>Feed</button>
         <button className={`tab ${tab==="goals"?"active":""}`} onClick={()=>setTab("goals")}>Metas</button>
         <button className={`tab ${tab==="friends"?"active":""}`} onClick={()=>setTab("friends")}>Amigos</button>
+        <button className={`tab ${tab==="dms"?"active":""}`} onClick={()=>setTab("dms")}>DMs</button>
       </nav>
 
       {/* ITEMS */}
@@ -162,7 +220,7 @@ export default function AppPage(){
         </section>
       )}
 
-      {/* FEED */}
+      {/* FEED con ♥ Like */}
       {tab==="feed" && (
         <section className="card">
           <h2 style={{marginTop:0}}>Feed</h2>
@@ -173,14 +231,17 @@ export default function AppPage(){
                   <strong>{p.name||p.email}</strong> — {p.content}
                   <div className="meta">{new Date(p.createdAt).toLocaleString()}</div>
                 </div>
-                <div className="muted">♥ {p.likeCount} · 💬 {p.commentCount}</div>
+                <div className="row">
+                  <button className="btn" onClick={()=>toggleLike(p.id)}>♥ {p.likeCount}</button>
+                  <span className="badge">💬 {p.commentCount}</span>
+                </div>
               </li>
             ))}
           </ul>
         </section>
       )}
 
-      {/* GOALS */}
+      {/* METAS */}
       {tab==="goals" && (
         <section className="card">
           <div className="row" style={{justifyContent:"space-between"}}>
@@ -203,7 +264,7 @@ export default function AppPage(){
         </section>
       )}
 
-      {/* FRIENDS */}
+      {/* AMIGOS */}
       {tab==="friends" && (
         <section className="card">
           <div className="row" style={{justifyContent:"space-between"}}>
@@ -223,7 +284,7 @@ export default function AppPage(){
               </form>
             </div>
 
-            {/* SOLICITUDES RECIBIDAS */}
+            {/* RECIBIDAS */}
             <div className="card" style={{padding:12}}>
               <h3 style={{marginTop:0}} className="muted">Solicitudes recibidas</h3>
               <ul className="list">
@@ -275,13 +336,66 @@ export default function AppPage(){
                     <div className="meta">{f.friendEmail}</div>
                   </div>
                   <div className="row">
-                    {/* Aquí podrías enlazar a DMs cuando tengas UI */}
-                    {/* <button className="btn">Chat</button> */}
+                    <button className="btn" onClick={()=>selectDMFriend(f.friendId, (f.friendName||f.friendEmail||"Amigo"))}>Chat</button>
                     <button className="btn ghost" onClick={()=>cancelOrRemoveFriend(f.id)}>Eliminar</button>
                   </div>
                 </li>
               ))}
             </ul>
+          </div>
+        </section>
+      )}
+
+      {/* DMS */}
+      {tab==="dms" && (
+        <section className="card">
+          <div className="row" style={{justifyContent:"space-between"}}>
+            <h2 style={{marginTop:0}}>Mensajes</h2>
+            <button className="btn secondary" onClick={()=>loadFriends()}>Refrescar amigos</button>
+          </div>
+
+          <div className="grid cols-2">
+            {/* Lista de amigos aceptados */}
+            <div className="card" style={{padding:12, maxHeight:380, overflow:"auto"}}>
+              <h3 className="muted" style={{marginTop:0}}>Amigos</h3>
+              <ul className="list">
+                {grouped.accepted.length===0 && <li className="item"><span className="muted">Sin amigos aún.</span></li>}
+                {grouped.accepted.map(f => (
+                  <li key={String(f.friendId)} className="item">
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:600}}>{f.friendName || f.friendEmail}</div>
+                      <div className="meta">{f.friendEmail}</div>
+                    </div>
+                    <button className="btn" onClick={()=>selectDMFriend(f.friendId, (f.friendName||f.friendEmail||"Amigo"))}>Chat</button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Panel de conversación */}
+            <div className="card" style={{padding:12}}>
+              <div className="row" style={{justifyContent:"space-between"}}>
+                <span className="badge">{dmFriend ? `Hablando con: ${dmFriend.name}` : "Selecciona un amigo"}</span>
+                {dmFriend && <button className="btn secondary" onClick={()=>loadDMs(false)}>Cargar más</button>}
+              </div>
+              <div style={{height:280, overflow:"auto", marginTop:8, border:"1px solid var(--border)", borderRadius:12, padding:8, background:"#0f1116"}}>
+                <ul className="list">
+                  {dmMsgs.map(m => (
+                    <li key={String(m.id)} className="item" style={{justifyContent: m.mine ? "flex-end" : "flex-start"}}>
+                      <div>
+                        <div>{m.text}</div>
+                        <div className="meta">{new Date(m.createdAt).toLocaleString()}</div>
+                      </div>
+                    </li>
+                  ))}
+                  {!dmMsgs.length && <li className="item"><span className="muted">No hay mensajes aún.</span></li>}
+                </ul>
+              </div>
+              <form onSubmit={sendDM} className="row" style={{marginTop:8}}>
+                <input className="input" value={dmText} onChange={e=>setDmText(e.target.value)} placeholder="Escribe un mensaje…" disabled={!dmFriend} />
+                <button className="btn" disabled={!dmFriend || !dmText.trim()}>Enviar</button>
+              </form>
+            </div>
           </div>
         </section>
       )}
