@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
 import { currentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { safeJson } from "@/lib/utils";
 
 export async function GET() {
   try {
     const u = await currentUser();
-    if (!u) {
-      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
-    }
+    if (!u) return NextResponse.json({ ok:false, error:"Unauthorized" }, { status:401 });
 
     const me = BigInt(u.id);
     const rows = await prisma.$queryRawUnsafe<any[]>(`
@@ -25,8 +24,8 @@ export async function GET() {
       ORDER BY f.id DESC
     `);
 
-    return NextResponse.json({ ok: true, friends: rows });
-  } catch (err: any) {
-    return NextResponse.json({ ok: false, error: err?.message || String(err) }, { status: 500 });
+    return NextResponse.json({ ok:true, friends: safeJson(rows) });
+  } catch (err:any) {
+    return NextResponse.json({ ok:false, error: err?.message || String(err) }, { status:500 });
   }
 }
