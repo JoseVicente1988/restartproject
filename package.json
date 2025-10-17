@@ -5,11 +5,13 @@
   "engines": {
     "node": "22.x"
   },
+{
   "scripts": {
     "dev": "next dev -p 3000",
-    "build": "prisma generate && next build",
+    "build": "next build",
     "start": "next start -p $PORT",
-    "migrate": "prisma migrate deploy"
+    "migrate": "prisma migrate deploy",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@prisma/client": "5.19.1",
