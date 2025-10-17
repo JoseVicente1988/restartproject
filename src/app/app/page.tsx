@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { api } from "@/src/lib/api";
+import { api } from "@/lib/api";
 
 type Item = { id: string; title: string; qty: number; note?: string|null; done: boolean; createdAt: string };
 type Post = { id: string; content: string; createdAt: string; name?: string|null; email: string; likeCount: number; commentCount: number };

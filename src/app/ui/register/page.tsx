@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { api } from "@/src/lib/api";
+import { api } from "@/lib/api";
 
 export default function RegisterPage(){
   const [email,setEmail] = useState("");

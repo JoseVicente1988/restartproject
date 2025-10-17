@@ -21,7 +21,7 @@ export async function api(path: string, init: RequestInit = {}) {
   if (ct.includes("application/json")) {
     const j = await r.json().catch(() => null);
     if (!j) throw new Error(`HTTP ${r.status}: Respuesta JSON inválida`);
-    if (!j.ok) {
+    if (!(j as any).ok) {
       const msg = (j as any).error || (j as any).message || `HTTP ${r.status}`;
       throw new Error(msg);
     }
