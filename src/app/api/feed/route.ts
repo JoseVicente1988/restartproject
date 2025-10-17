@@ -15,12 +15,16 @@ export async function GET(req: Request) {
     const offset = Math.max(0, Math.min(10000, parseInt(url.searchParams.get("offset") ?? "0", 10)));
 
     const posts = await prisma.$queryRawUnsafe<any[]>(`
-      SELECT p.id, p.user_id as "userId", p.content, p.created_at as "createdAt",
-        u.name, u.email,
-        (SELECT COUNT(*) FROM "FeedLike" fl WHERE fl.post_id = p.id) as "likeCount",
-        (SELECT COUNT(*) FROM "FeedComment" fc WHERE fc.post_id = p.id) as "commentCount"
+      SELECT p.id,
+             p."userId"      as "userId",
+             p.content,
+             p."createdAt"   as "createdAt",
+             u.name,
+             u.email,
+             (SELECT COUNT(*) FROM "FeedLike" fl WHERE fl.postId = p.id) as "likeCount",
+             (SELECT COUNT(*) FROM "FeedComment" fc WHERE fc.postId = p.id) as "commentCount"
       FROM "FeedPost" p
-      JOIN "User" u ON u.id = p.user_id
+      JOIN "User" u ON u.id = p."userId"
       ORDER BY p.id DESC
       LIMIT ${limit} OFFSET ${offset}
     `);

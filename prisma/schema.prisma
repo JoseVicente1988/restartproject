@@ -88,17 +88,15 @@ model Goal {
 model FeedPost {
   id        BigInt   @id @default(autoincrement())
   userId    BigInt
-  goalId    BigInt?
   content   String
   createdAt DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // Relaciones inversas con nombres que usaremos en los hijos
+  // Relaciones
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   likes    FeedLike[]    @relation("LikesForPost")
   comments FeedComment[] @relation("CommentsForPost")
 
-  @@index([userId, createdAt])
+  @@index([userId])
 }
 
 model FeedLike {
