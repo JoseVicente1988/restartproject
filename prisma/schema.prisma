@@ -10,21 +10,22 @@ datasource db {
 }
 
 model User {
-  id           BigInt   @id @default(autoincrement())
-  email        String   @unique
-  passwordHash String
-  name         String?
-  locale       String?  @default("es")
-  theme        String?  @default("pastel")
-  photoBase64  String?
-  createdAt    DateTime @default(now())
+  id                 BigInt   @id @default(autoincrement())
+  email              String   @unique
+  passwordHash       String
+  securityQuestion   String? // Nueva columna opcional
+  securityAnswerHash String? // Nueva columna opcional
+  name               String?
+  locale             String?  @default("es")
+  theme              String?  @default("pastel")
+  photoBase64        String?
+  createdAt          DateTime @default(now())
 
   sessions Session[]
   items    Item[]
   goals    Goal[]
   posts    FeedPost[]
 
-  // Relaciones inversas explícitas
   likes    FeedLike[]    @relation("LikesByUser")
   comments FeedComment[] @relation("CommentsByUser")
 
