@@ -5,10 +5,18 @@ import { itemCreateSchema } from "@/lib/validation";
 
 async function getHandler() {
   const u = await currentUser(); if (!u) return okJSON({ ok:false, error:"Unauthorized" }, { status:401 });
-  const items = await prisma.item.findMany({
+  const rows = await prisma.item.findMany({
     where: { userId: BigInt(u.id) },
     orderBy: [{ done: "asc" }, { id: "desc" }]
   });
+  const items = rows.map(r => ({
+    id: r.id.toString(),
+    title: r.title,
+    qty: r.qty,
+    note: r.note ?? null,
+    done: r.done,
+    createdAt: r.createdAt
+  }));
   return okJSON({ ok:true, items });
 }
 
@@ -30,6 +38,6 @@ async function postHandler(req: Request) {
 }
 
 export const dynamic = "force-dynamic";
-export const GET = withMethods({ GET: getHandler });
+export const GET  = withMethods({ GET: getHandler });
 export const POST = withMethods({ POST: postHandler });
 export const OPTIONS = withMethods({ OPTIONS: async () => okJSON({}, { status:204 }) });

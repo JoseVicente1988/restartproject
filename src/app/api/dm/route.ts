@@ -22,8 +22,11 @@ async function getHandler(req: Request) {
   });
 
   const mapped = msgs.map(m => ({
-    id: m.id, text: m.text, createdAt: m.createdAt,
-    mine: m.senderId === me, senderId: m.senderId
+    id: m.id.toString(),
+    text: m.text,
+    createdAt: m.createdAt,
+    mine: m.senderId === me,
+    senderId: m.senderId.toString()
   }));
   return okJSON({ ok:true, messages: mapped });
 }

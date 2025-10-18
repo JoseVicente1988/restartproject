@@ -9,7 +9,7 @@ async function getHandler(req: Request) {
   const limit  = Math.max(1, Math.min(50, parseInt(url.searchParams.get("limit") ?? "10", 10)));
   const offset = Math.max(0, Math.min(10000, parseInt(url.searchParams.get("offset") ?? "0", 10)));
 
-  const posts = await prisma.$queryRawUnsafe<any[]>(`
+  const rows = await prisma.$queryRawUnsafe<any[]>(`
     SELECT p.id, p."userId", p.content, p."createdAt",
       u.name, u.email,
       (SELECT COUNT(*) FROM "FeedLike" fl WHERE fl."postId" = p.id) as "likeCount",
@@ -19,6 +19,18 @@ async function getHandler(req: Request) {
     ORDER BY p.id DESC
     LIMIT ${limit} OFFSET ${offset}
   `);
+
+  const posts = rows.map(p => ({
+    id: p.id.toString(),
+    userId: p.userId?.toString?.() ?? p.userId,
+    content: p.content,
+    createdAt: p.createdAt,
+    name: p.name,
+    email: p.email,
+    likeCount: Number(p.likeCount || 0),
+    commentCount: Number(p.commentCount || 0)
+  }));
+
   return okJSON({ ok:true, posts });
 }
 

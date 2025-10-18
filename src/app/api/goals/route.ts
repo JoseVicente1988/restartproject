@@ -5,7 +5,15 @@ import { goalCreateSchema } from "@/lib/validation";
 
 async function getHandler() {
   const u = await currentUser(); if (!u) return okJSON({ ok:false, error:"Unauthorized" }, { status:401 });
-  const goals = await prisma.goal.findMany({ where: { userId: BigInt(u.id) }, orderBy: { id: "asc" } });
+  const rows = await prisma.goal.findMany({ where: { userId: BigInt(u.id) }, orderBy: { id: "asc" } });
+  const goals = rows.map(g => ({
+    id: g.id.toString(),
+    userId: g.userId.toString(),
+    title: g.title,
+    targetDate: g.targetDate,
+    isPublic: g.isPublic,
+    createdAt: g.createdAt
+  }));
   return okJSON({ ok:true, goals });
 }
 
@@ -17,7 +25,7 @@ async function postHandler(req: Request) {
     const g = await prisma.goal.create({
       data: { userId: BigInt(u.id), title: data.title, targetDate: data.target_date ? new Date(data.target_date) : null }
     });
-    return okJSON({ ok:true, goal_id: g.id }, { status:201 });
+    return okJSON({ ok:true, goal_id: g.id.toString() }, { status:201 });
   } catch {
     return okJSON({ ok:false, error:"Bad request" }, { status:400 });
   }

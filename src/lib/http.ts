@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-const ORIGIN = process.env.NEXT_PUBLIC_ORIGIN || ""; // opcional: fija tu dominio si quieres
+const ORIGIN = process.env.NEXT_PUBLIC_ORIGIN || ""; // opcional
 
 export function corsHeaders() {
   const h = new Headers();
@@ -16,7 +16,9 @@ export function okJSON(data: any, init: ResponseInit = {}) {
   const hdrs = new Headers(init.headers || {});
   corsHeaders().forEach((v, k) => hdrs.set(k, v));
   hdrs.set("Content-Type", "application/json; charset=utf-8");
-  return new NextResponse(JSON.stringify(data), { ...init, headers: hdrs });
+  // BigInt-safe stringify
+  const json = JSON.stringify(data, (_k, v) => (typeof v === "bigint" ? v.toString() : v));
+  return new NextResponse(json, { ...init, headers: hdrs });
 }
 
 export function noContent() {
@@ -30,19 +32,14 @@ export function methodNotAllowed(allow: string[]) {
   return okJSON({ ok: false, error: "Method Not Allowed", allow }, { status: 405, headers: hdrs });
 }
 
-type HandlerMap = Partial<Record<
-  "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS",
-  (req: Request) => Promise<Response> | Response
->>;
+type HandlerMap = Partial<Record<"GET"|"POST"|"PUT"|"PATCH"|"DELETE"|"OPTIONS",(req: Request)=>Promise<Response>|Response>>;
 
-/** Despacha por método y responde OPTIONS 204 por defecto (evita 405 de preflight) */
 export function withMethods(map: HandlerMap) {
   const allow = Object.keys(map) as string[];
-  const impl = async (req: Request) => {
+  return async (req: Request) => {
     const m = req.method.toUpperCase() as keyof HandlerMap;
     if (m === "OPTIONS") return noContent();
     const fn = map[m];
     return fn ? fn(req) : methodNotAllowed(allow.length ? allow : ["GET","POST","OPTIONS"]);
   };
-  return impl;
 }
