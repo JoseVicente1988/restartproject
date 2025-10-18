@@ -5,6 +5,7 @@ import JsonSafePatch from "@/components/JsonSafePatch";
 export const metadata: Metadata = {
   title: "GroFriends",
   description: "Lista de la compra con feed, metas y amigos",
+  icons: { icon: "/favicon.ico" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
