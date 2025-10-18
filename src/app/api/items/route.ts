@@ -1,7 +1,21 @@
 import { NextResponse } from "next/server";
 import { currentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { itemCreateSchema } from "@/lib/validation";
+import { z } from "zod";
+
+// Definición segura para validar lo que llega desde el frontend
+const itemCreateSchema = z.object({
+  title: z.string().min(1, "Falta título"),
+  qty: z.number().int().positive().default(1),
+  note: z.string().nullable().optional(),
+  geo: z
+    .object({
+      lat: z.number().optional(),
+      lng: z.number().optional(),
+      radiusKm: z.number().optional(),
+    })
+    .optional(),
+});
 
 type Geo = { lat?: number; lng?: number; radiusKm?: number };
 
@@ -21,7 +35,7 @@ async function findCheapestByName(
   name: string,
   geo?: Geo
 ): Promise<{ storeId: bigint; storeName: string; price: number } | null> {
-  // comprobar que existen Store/Product/Price
+  // Si los modelos no existen, evitar error
   // @ts-ignore
   const hasStore = (prisma as any).store && (prisma as any).price && (prisma as any).product;
   if (!hasStore) return null;
@@ -75,59 +89,49 @@ async function findCheapestByName(
 }
 
 export async function GET() {
-  const u = await currentUser(); if (!u) return NextResponse.json({ ok:false, error:"Unauthorized" }, { status:401 });
+  const u = await currentUser();
+  if (!u) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
 
   const items = await prisma.item.findMany({
     where: { userId: BigInt(u.id) },
     orderBy: [{ done: "asc" }, { id: "desc" }],
-    select: { id:true, title:true, qty:true, note:true, done:true, createdAt:true }
+    select: { id: true, title: true, qty: true, note: true, done: true, createdAt: true },
   });
 
-  const mapped = items.map(it => ({
-    id: String(it.id),
-    title: it.title,
-    qty: it.qty,
-    note: it.note,
-    done: it.done,
-    createdAt: it.createdAt
-  }));
-
-  return NextResponse.json({ ok:true, items: mapped });
+  return NextResponse.json({ ok: true, items });
 }
 
 export async function POST(req: Request) {
-  const u = await currentUser(); if (!u) return NextResponse.json({ ok:false, error:"Unauthorized" }, { status:401 });
+  const u = await currentUser();
+  if (!u) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
 
   try {
     const raw = await req.json();
-    const data = itemCreateSchema.parse({ title: raw.title, qty: raw.qty, note: raw.note });
-    const geo: Geo | undefined = raw?.geo;
+    console.log("Datos recibidos en /api/items:", raw);
+
+    const data = itemCreateSchema.parse(raw);
 
     const created = await prisma.item.create({
-      data: { userId: BigInt(u.id), title: data.title, qty: data.qty, note: data.note ?? null }
+      data: {
+        userId: BigInt(u.id),
+        title: data.title,
+        qty: data.qty,
+        note: data.note ?? null,
+      },
     });
 
-    // Si al crear la lista quedó vacía de pendientes => publicar logro
+    // Si ya no hay pendientes → se publica en el feed
     const remaining = await prisma.item.count({ where: { userId: BigInt(u.id), done: false } });
     if (remaining === 0) {
-      await prisma.feedPost.create({ data: { userId: BigInt(u.id), content: "¡Lista completada hoy! 🏁" } });
-    }
-
-    // 1) Buscar precio más barato dentro del radio (Price)
-    let suggestion = await findCheapestByName(data.title, geo);
-
-    // 2) Si no hay en Price, usar memoria del usuario (UserKnownPrice)
-    if (!suggestion) {
-      const known = await prisma.userKnownPrice.findFirst({
-        where: { userId: BigInt(u.id), name: data.title },
-        include: { store: { select: { id: true, name: true } } }
+      await prisma.feedPost.create({
+        data: { userId: BigInt(u.id), content: "¡Lista completada hoy! 🏁" },
       });
-      if (known) {
-        suggestion = { storeId: known.storeId, storeName: known.store.name, price: Number(known.price) };
-      }
     }
 
-    // 3) Actualizar memoria si encontramos algo mejor
+    // Buscar sugerencia de precio
+    const suggestion = await findCheapestByName(data.title, data.geo);
+
+    // Guardar o actualizar en memoria de precios conocidos
     if (suggestion) {
       const existing = await prisma.userKnownPrice.findFirst({
         where: { userId: BigInt(u.id), name: data.title },
@@ -140,7 +144,12 @@ export async function POST(req: Request) {
           });
         } else {
           await prisma.userKnownPrice.create({
-            data: { userId: BigInt(u.id), name: data.title, storeId: suggestion.storeId, price: suggestion.price },
+            data: {
+              userId: BigInt(u.id),
+              name: data.title,
+              storeId: suggestion.storeId,
+              price: suggestion.price,
+            },
           });
         }
       }
@@ -150,12 +159,18 @@ export async function POST(req: Request) {
       ok: true,
       id: String(created.id),
       suggestion: suggestion
-        ? { storeId: String(suggestion.storeId), storeName: suggestion.storeName, price: suggestion.price }
-        : null
-    }, { status: 201 });
-
+        ? {
+            storeId: String(suggestion.storeId),
+            storeName: suggestion.storeName,
+            price: suggestion.price,
+          }
+        : null,
+    });
   } catch (e: any) {
-    console.error(e);
-    return NextResponse.json({ ok:false, error:"Bad request" }, { status:400 });
+    console.error("Error en POST /api/items:", e);
+    return NextResponse.json(
+      { ok: false, error: e.message || "Bad request" },
+      { status: 400 }
+    );
   }
 }
