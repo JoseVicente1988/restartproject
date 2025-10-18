@@ -1,15 +1,15 @@
 import "./globals.css";
-import { currentUser } from "@/lib/auth";
-import SettingsMenu from "@/components/SettingsMenu";
+import type { Metadata } from "next";
 
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const u = await currentUser().catch(() => null);
+export const metadata: Metadata = {
+  title: "GroFriends",
+  description: "Lista de compra + social + metas",
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <body className="min-h-screen bg-[linear-gradient(180deg,var(--bg),#0d1016)] text-[var(--ink)]">
-        {u ? <SettingsMenu /> : null}
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
