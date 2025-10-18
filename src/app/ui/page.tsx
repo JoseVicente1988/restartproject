@@ -1,5 +1,4 @@
 "use client";
-
 import { useState } from "react";
 import { api } from "@/lib/api";
 
@@ -28,26 +27,18 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="auth-wrap">
-      <div className="auth-bg" />
-      <div className="auth-card">
-        <div className="auth-head">
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div className="auth-title">GroFriends</div>
-            <span className="badge">Beta</span>
-          </div>
-          <span className="badge">simple · rápido</span>
+    <div className="center-wrap">
+      <div className="center-card">
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+          <div className="title">GroFriends</div>
+          <span className="badge">Beta</span>
         </div>
 
-        <p className="auth-sub">Tu lista de la compra con feed, metas y amigos.</p>
+        <p className="muted" style={{ marginTop: 0, marginBottom: 14 }}>
+          Tu lista de la compra con feed, metas y amigos.
+        </p>
 
-        {msg && (
-          <div className="card" style={{ borderColor: "var(--err)", color: "var(--err)" }}>
-            {msg}
-          </div>
-        )}
-
-        <form onSubmit={onSubmit} className="auth-form" autoComplete="on" noValidate>
+        <form onSubmit={onSubmit} className="grid" style={{ gap: 10 }}>
           <input
             className="input"
             type="email"
@@ -56,7 +47,6 @@ export default function LoginPage() {
             onChange={(e) => setEmail(e.target.value)}
             required
             autoComplete="email"
-            aria-label="Email"
           />
           <input
             className="input"
@@ -67,24 +57,36 @@ export default function LoginPage() {
             required
             minLength={8}
             autoComplete="current-password"
-            aria-label="Contraseña"
           />
 
-          <div className="auth-actions">
-            <button className="btn-primary" disabled={loading} aria-label="Entrar">
+          {msg && (
+            <div className="card" style={{ borderColor: "var(--err)", color: "var(--err)" }}>
+              {msg}
+            </div>
+          )}
+
+          <div className="row" style={{ justifyContent: "space-between", marginTop: 6 }}>
+            <button className="btn-primary" disabled={loading}>
               {loading ? "Entrando…" : "Entrar"}
             </button>
             <a className="btn secondary" href="/ui/register" aria-label="Ir a crear cuenta">
               Crear cuenta
             </a>
           </div>
+
+          {/* Enlace a recuperar contraseña */}
+          <div className="row" style={{ justifyContent: "space-between", marginTop: 8 }}>
+            <span className="muted" />
+            <a
+              href="/ui/forgot"
+              className="link"
+              style={{ textDecoration: "underline", color: "var(--acc)" }}
+              aria-label="Recuperar contraseña"
+            >
+              ¿Olvidaste la contraseña?
+            </a>
+          </div>
         </form>
-
-        <div style={{ height: 10 }} />
-
-        <div className="auth-note">
-          ¿Nuevo por aquí? Crea tu cuenta en un paso y te redirigimos al panel.
-        </div>
       </div>
     </div>
   );
