@@ -1,3 +1,4 @@
+// prisma/schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,32 +10,26 @@ datasource db {
 }
 
 model User {
-  id               BigInt   @id @default(autoincrement())
-  email            String   @unique
-  passwordHash     String
-  name             String?
-  locale           String?  @default("es")
-  theme            String?  @default("pastel")
-  photoBase64      String?
-  createdAt        DateTime @default(now())
-
-  // NUEVO: seguridad
-  securityQuestion   String?
-  securityAnswerHash String?
+  id           BigInt   @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  locale       String?  @default("es")
+  theme        String?  @default("pastel")
+  photoBase64  String?
+  createdAt    DateTime @default(now())
 
   sessions Session[]
   items    Item[]
   goals    Goal[]
   posts    FeedPost[]
 
+  // Relaciones inversas explícitas
   likes    FeedLike[]    @relation("LikesByUser")
   comments FeedComment[] @relation("CommentsByUser")
 
   sentDMs DM[] @relation("sent")
   recvDMs DM[] @relation("recv")
-
-  // resets de password
-  resets PasswordReset[]
 
   @@index([email])
 }
@@ -97,8 +92,8 @@ model FeedPost {
   content   String
   createdAt DateTime @default(now())
 
-  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  likes   FeedLike[]  @relation("LikesForPost")
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  likes    FeedLike[]    @relation("LikesForPost")
   comments FeedComment[] @relation("CommentsForPost")
 
   @@index([userId, id])
@@ -110,7 +105,9 @@ model FeedLike {
   userId    BigInt
   createdAt DateTime @default(now())
 
+  // Hacia el post
   post FeedPost @relation("LikesForPost", fields: [postId], references: [id], onDelete: Cascade)
+  // Hacia el usuario
   user User     @relation("LikesByUser", fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([postId, userId])
@@ -124,7 +121,9 @@ model FeedComment {
   text      String
   createdAt DateTime @default(now())
 
+  // Hacia el post
   post FeedPost @relation("CommentsForPost", fields: [postId], references: [id], onDelete: Cascade)
+  // Hacia el usuario
   user User     @relation("CommentsByUser", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([postId])
@@ -163,52 +162,43 @@ model AchievementProgress {
   @@index([userId, achieved])
 }
 
-model PasswordReset {
-  id        BigInt   @id @default(autoincrement())
-  userId    BigInt
-  token     String   @unique
-  createdAt DateTime @default(now())
-  expiresAt DateTime
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, expiresAt])
-}
-
-model Product {
-  id        BigInt    @id @default(autoincrement())
-  name      String
-  barcode   String?   @unique
-  createdAt DateTime  @default(now())
-  prices    Price[]
-
-  @@index([name])
-}
+// =========================
+//   MÓDULO DE PRECIOS
+// =========================
 
 model Store {
-  id        BigInt    @id @default(autoincrement())
-  name      String
+  id        BigInt   @id @default(autoincrement())
+  name      String   @unique
   address   String?
   lat       Float
   lng       Float
-  createdAt DateTime  @default(now())
-  prices    Price[]
+  createdAt DateTime @default(now())
 
-  @@index([lat, lng])
+  prices Price[]
+}
+
+model Product {
+  id        BigInt   @id @default(autoincrement())
+  name      String
+  barcode   String?  @unique
+  createdAt DateTime @default(now())
+
+  prices Price[]
+
   @@index([name])
 }
 
 model Price {
-  id         BigInt    @id @default(autoincrement())
-  productId  BigInt
-  storeId    BigInt
-  price      Decimal   @db.Decimal(10,2)
-  currency   String    @default("EUR")
-  updatedAt  DateTime  @updatedAt
+  id        BigInt   @id @default(autoincrement())
+  productId BigInt
+  storeId   BigInt
+  price     Float
+  currency  String   @default("EUR")
+  createdAt DateTime @default(now())
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   store   Store   @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
+  @@unique([productId, storeId])
   @@index([productId, storeId])
-  @@index([updatedAt])
 }

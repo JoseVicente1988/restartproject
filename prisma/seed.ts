@@ -9,18 +9,11 @@ function cp(a: bigint, b: bigint) {
 }
 
 async function upsertUser(email: string, name: string, password: string) {
-  const passwordHash = bcrypt.hashSync(password, 10);
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) return existing;
-
+  const passwordHash = bcrypt.hashSync(password, 10);
   return prisma.user.create({
-    data: {
-      email,
-      name,
-      passwordHash,
-      locale: "es",
-      theme: "pastel"
-    }
+    data: { email, name, passwordHash, locale: "es", theme: "pastel" }
   });
 }
 
@@ -29,21 +22,13 @@ async function ensureFriendship(u1: bigint, u2: bigint, requestedBy: bigint) {
   const f = await prisma.friendship.findUnique({
     where: { userA_userB: { userA: a, userB: b } }
   }).catch(() => null);
-
   if (f) return f;
-
   return prisma.friendship.create({
-    data: {
-      userA: a,
-      userB: b,
-      status: "accepted",
-      requestedBy
-    }
+    data: { userA: a, userB: b, status: "accepted", requestedBy }
   });
 }
 
 async function seedItems(userId: bigint) {
-  // Limpio y vuelvo a crear un set básico de items
   await prisma.item.deleteMany({ where: { userId } });
   await prisma.item.createMany({
     data: [
@@ -55,56 +40,26 @@ async function seedItems(userId: bigint) {
 }
 
 async function seedGoalsAndFeed(userId: bigint, friendId: bigint) {
-  // Metas
   await prisma.goal.deleteMany({ where: { userId } });
-  const g1 = await prisma.goal.create({
-    data: {
-      userId,
-      title: "4 semanas completas sin olvidar nada",
-      targetDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30), // ~30 días
-      isPublic: false
-    }
-  });
   const g2 = await prisma.goal.create({
-    data: {
-      userId,
-      title: "36 huevos en un mes",
-      targetDate: null,
-      isPublic: true
-    }
+    data: { userId, title: "36 huevos en un mes", targetDate: null, isPublic: true }
   });
-
-  // Feed básico
   await prisma.feedPost.deleteMany({ where: { userId } });
   const p1 = await prisma.feedPost.create({
-    data: {
-      userId,
-      content: "Empezando fuerte la lista esta semana 💪"
-    }
+    data: { userId, content: "Empezando fuerte la lista esta semana 💪" }
   });
-  const p2 = await prisma.feedPost.create({
-    data: {
-      userId,
-      content: `Meta publicada: ${g2.title}`
-    }
+  await prisma.feedPost.create({
+    data: { userId, content: `Meta publicada: ${g2.title}` }
   });
-
-  // Likes y comentarios del amigo
   await prisma.feedLike.create({
     data: { postId: p1.id, userId: friendId }
   }).catch(() => null);
-
   await prisma.feedComment.create({
-    data: {
-      postId: p1.id,
-      userId: friendId,
-      text: "¡Dale! Esta semana lo completas fijo 👏"
-    }
+    data: { postId: p1.id, userId: friendId, text: "¡Dale! Esta semana lo completas fijo 👏" }
   });
 }
 
 async function seedDMs(a: bigint, b: bigint) {
-  // conversa mínima
   await prisma.dM.createMany({
     data: [
       { senderId: a, receiverId: b, text: "¡Hey! ¿Probaste la app ya?" },
@@ -115,13 +70,10 @@ async function seedDMs(a: bigint, b: bigint) {
 }
 
 async function seedAchievements(userId: bigint) {
-  // Logros y progreso
-  // Nota: Achievement.code es unique según tu esquema
   const codes = [
     { code: "FIRST_LIST_DONE", title: "Primera lista completada", desc: "Marca todos los items de una lista." },
     { code: "FOUR_WEEKS_PERFECT", title: "4 semanas perfectas", desc: "Completa cuatro semanas sin olvidos." }
   ];
-
   for (const c of codes) {
     await prisma.achievement.upsert({
       where: { code: c.code },
@@ -129,7 +81,6 @@ async function seedAchievements(userId: bigint) {
       update: c
     });
   }
-
   const first = await prisma.achievement.findUnique({ where: { code: "FIRST_LIST_DONE" } });
   if (first) {
     await prisma.achievementProgress.upsert({
@@ -140,27 +91,68 @@ async function seedAchievements(userId: bigint) {
   }
 }
 
-async function main() {
-  console.log("Seeding con esquema actual…");
+/* ------- NUEVO: Stores / Products / Prices ------- */
 
-  // Usuarios demo (email es unique)
+async function ensureStore(name: string, lat: number, lng: number, address?: string | null) {
+  let s = await prisma.store.findUnique({ where: { name } }).catch(() => null);
+  if (!s) s = await prisma.store.create({ data: { name, lat, lng, address: address ?? null } });
+  return s;
+}
+
+async function ensureProduct(name: string, barcode?: string | null) {
+  if (barcode && barcode.trim()) {
+    const byBc = await prisma.product.findUnique({ where: { barcode } }).catch(() => null);
+    if (byBc) return byBc;
+  }
+  const byName = await prisma.product.findFirst({ where: { name } });
+  if (byName) return byName;
+  return prisma.product.create({ data: { name, barcode: barcode?.trim() || null } });
+}
+
+async function upsertPrice(productId: bigint, storeId: bigint, price: number, currency = "EUR") {
+  const unique = await prisma.price.findUnique({
+    where: { productId_storeId: { productId, storeId } }
+  }).catch(() => null);
+  if (unique) {
+    await prisma.price.update({ where: { id: unique.id }, data: { price, currency } });
+    return unique;
+  }
+  return prisma.price.create({ data: { productId, storeId, price, currency } });
+}
+
+async function seedPrices() {
+  const s1 = await ensureStore("MercaCentro", 39.4699, -0.3763, "C/ Central 1");
+  const s2 = await ensureStore("Súper Ahorro", 39.4700, -0.3800, "Av. Mar 12");
+
+  const huevos = await ensureProduct("Huevos L docena", "1234567890123");
+  const leche  = await ensureProduct("Leche entera 1L",  "2345678901234");
+  const pan    = await ensureProduct("Pan de molde 500g");
+
+  await upsertPrice(huevos.id, s1.id, 2.49);
+  await upsertPrice(huevos.id, s2.id, 2.39);
+
+  await upsertPrice(leche.id, s1.id, 0.99);
+  await upsertPrice(leche.id, s2.id, 1.09);
+
+  await upsertPrice(pan.id, s1.id, 1.45);
+  await upsertPrice(pan.id, s2.id, 1.29);
+}
+
+/* -------------------------------------------------- */
+
+async function main() {
+  console.log("Seeding…");
+
   const alice = await upsertUser("alice@example.com", "Alice", "password123");
   const bob   = await upsertUser("bob@example.com",   "Bob",   "password123");
 
-  // Amistad aceptada
   await ensureFriendship(alice.id, bob.id, alice.id);
-
-  // Items de Alice
   await seedItems(alice.id);
-
-  // Metas, feed, likes/comentarios
   await seedGoalsAndFeed(alice.id, bob.id);
-
-  // DMs entre ambos
   await seedDMs(alice.id, bob.id);
-
-  // Logros y progreso
   await seedAchievements(alice.id);
+
+  await seedPrices();
 
   console.log("Seed OK ✅");
 }
