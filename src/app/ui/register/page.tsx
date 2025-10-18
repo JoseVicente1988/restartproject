@@ -6,8 +6,8 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [pwd, setPwd] = useState("");
   const [name, setName] = useState("");
-  const [q, setQ] = useState("");
-  const [a, setA] = useState("");
+  const [q, setQ] = useState(""); // pregunta de seguridad
+  const [a, setA] = useState(""); // respuesta de seguridad
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
 
@@ -54,23 +54,65 @@ export default function RegisterPage() {
         <div className="card" style={{ background: "var(--chip)" }}>
           <div style={{ fontWeight: 700, marginBottom: 6 }}>Estás en el modo registro</div>
           <div className="muted" style={{ fontSize: 13 }}>
-            Añade una pregunta y respuesta de seguridad. Te permitirá recuperar tu contraseña si la olvidas.
+            Añade una pregunta y respuesta de seguridad para recuperar tu cuenta si olvidas la contraseña.
           </div>
         </div>
 
         <form onSubmit={onSubmit} className="grid" style={{ gap: 10, marginTop: 12 }}>
-          <input className="input" type="text" placeholder="Nombre (opcional)" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
-          <input className="input" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
-          <input className="input" type="password" placeholder="Contraseña (mín. 8)" value={pwd} onChange={(e) => setPwd(e.target.value)} required minLength={8} autoComplete="new-password" />
+          <input
+            className="input"
+            type="text"
+            placeholder="Nombre (opcional)"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoComplete="name"
+          />
+          <input
+            className="input"
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoComplete="email"
+          />
+          <input
+            className="input"
+            type="password"
+            placeholder="Contraseña (mín. 8)"
+            value={pwd}
+            onChange={(e) => setPwd(e.target.value)}
+            required
+            minLength={8}
+            autoComplete="new-password"
+          />
 
-          <input className="input" type="text" placeholder="Pregunta de seguridad (mín. 8 caracteres)" value={q} onChange={(e) => setQ(e.target.value)} required minLength={8} />
-          <input className="input" type="text" placeholder="Respuesta de seguridad" value={a} onChange={(e) => setA(e.target.value)} required minLength={2} />
+          <input
+            className="input"
+            type="text"
+            placeholder="Pregunta de seguridad (mín. 8 caracteres)"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            required
+            minLength={8}
+          />
+          <input
+            className="input"
+            type="text"
+            placeholder="Respuesta de seguridad"
+            value={a}
+            onChange={(e) => setA(e.target.value)}
+            required
+            minLength={2}
+          />
 
           {msg && <div className="card" style={{ borderColor: "var(--err)", color: "var(--err)" }}>{msg}</div>}
 
-          <div className="row" style={{ justifyContent: "space-between", marginTop: 6 }}>
-            <a className="btn secondary" href="/ui" aria-label="Volver al login">Volver al login</a>
-            <button className="btn-primary" disabled={loading}>{loading ? "Creando…" : "Crear y entrar"}</button>
+          <div className="row actions" style={{ marginTop: 6 }}>
+            <a className="btn" href="/ui" aria-label="Volver al login">Volver al login</a>
+            <button className="btn-primary" disabled={loading}>
+              {loading ? "Creando…" : "Crear y entrar"}
+            </button>
           </div>
         </form>
       </div>

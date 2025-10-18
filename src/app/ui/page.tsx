@@ -65,24 +65,18 @@ export default function LoginPage() {
             </div>
           )}
 
-          <div className="row" style={{ justifyContent: "space-between", marginTop: 6 }}>
+          <div className="row actions" style={{ marginTop: 6 }}>
             <button className="btn-primary" disabled={loading}>
               {loading ? "Entrando…" : "Entrar"}
             </button>
-            <a className="btn secondary" href="/ui/register" aria-label="Ir a crear cuenta">
+            <a className="btn" href="/ui/register" aria-label="Ir a crear cuenta">
               Crear cuenta
             </a>
           </div>
 
-          {/* Enlace a recuperar contraseña */}
           <div className="row" style={{ justifyContent: "space-between", marginTop: 8 }}>
             <span className="muted" />
-            <a
-              href="/ui/forgot"
-              className="link"
-              style={{ textDecoration: "underline", color: "var(--acc)" }}
-              aria-label="Recuperar contraseña"
-            >
+            <a href="/ui/forgot" className="link" aria-label="Recuperar contraseña">
               ¿Olvidaste la contraseña?
             </a>
           </div>
