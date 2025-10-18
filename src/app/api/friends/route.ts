@@ -32,4 +32,3 @@ async function getHandler() {
 export const dynamic = "force-dynamic";
 export const GET = withMethods({ GET: getHandler });
 export const OPTIONS = withMethods({ OPTIONS: async () => okJSON({}, { status:204 }) });
-  
