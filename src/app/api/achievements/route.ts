@@ -1,25 +1,18 @@
-// src/app/api/achievements/route.ts
-export const runtime = "nodejs";
-
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { currentUser } from "@/lib/auth";
 
-function json(data: any, status = 200) {
-  return NextResponse.json(data, { status, headers: { "Cache-Control": "no-store" } });
-}
-
-export async function OPTIONS() { return new NextResponse(null, { status: 204 }); }
 export async function GET() {
   const u = await currentUser();
-  if (!u) return json({ ok: false, error: "Unauthorized" }, 401);
-  const me = BigInt(u.id);
+  if (!u) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
 
-  // Semilla mínima de logros
+  // logros base del sistema
   const defaults = [
-    { code: "LISTA_COMPLETA_DIA", title: "Lista completa (hoy)", desc: "Has completado toda la lista de compra." },
-    { code: "HUEVOS_36_MES",      title: "36 huevos/mes",        desc: "Has comprado al menos 36 huevos en el último mes." },
+    { code: "first_item", title: "Primer producto", description: "Añadiste tu primer producto 🛒", icon: "🥇" },
+    { code: "list_completed", title: "Lista completada", description: "Completaste tu primera lista ✅", icon: "🏁" },
+    { code: "ten_items", title: "Organizado", description: "Has añadido 10 productos a tus listas 📦", icon: "🗂️" },
   ];
+
   for (const d of defaults) {
     await prisma.achievement.upsert({
       where: { code: d.code },
@@ -28,23 +21,20 @@ export async function GET() {
     });
   }
 
-  const [all, progress] = await Promise.all([
-    prisma.achievement.findMany({ orderBy: { id: "asc" } }),
-    prisma.achievementProgress.findMany({ where: { userId: me } }),
-  ]);
-
-  const byId = new Map(progress.map(p => [p.achievementId.toString(), p]));
-  const achievements = all.map(a => {
-    const p = byId.get(a.id.toString());
-    return {
-      id: a.id.toString(),
-      code: a.code,
-      title: a.title,
-      desc: a.desc,
-      achieved: !!p?.achieved,
-      progress: p?.progress ?? 0,
-    };
+  const userAchievements = await prisma.userAchievement.findMany({
+    where: { userId: BigInt(u.id) },
+    include: { achievement: true },
   });
 
-  return json({ ok: true, achievements });
+  return NextResponse.json({
+    ok: true,
+    achievements: userAchievements.map((a) => ({
+      id: a.achievement.id,
+      code: a.achievement.code,
+      title: a.achievement.title,
+      description: a.achievement.description,
+      icon: a.achievement.icon,
+      achievedAt: a.achievedAt,
+    })),
+  });
 }
