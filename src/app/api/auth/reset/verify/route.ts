@@ -1,41 +1,43 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import bcrypt from "bcryptjs";
-import crypto from "node:crypto";
-
-const RESET_TTL_MS = 60 * 60 * 1000; // 60 min
+import { hashPassword } from "@/lib/crypto";
 
 export async function POST(req: Request) {
   try {
     const { email, answer } = await req.json();
-    const norm = (email || "").toString().trim().toLowerCase();
-    const ans = (answer || "").toString().trim();
-    if (!norm || !ans) return NextResponse.json({ ok: false, error: "Datos incompletos" }, { status: 400 });
+
+    if (!email || !answer)
+      return NextResponse.json({ ok: false, error: "Datos incompletos" }, { status: 400 });
 
     const user = await prisma.user.findUnique({
-      where: { email: norm },
-      select: { id: true, securityAnswerHash: true, securityQuestion: true }
+      where: { email: email.trim().toLowerCase() },
     });
 
-    // Seguridad: devolvemos 200/ok:false sin detallar si existe o no
-    if (!user?.securityAnswerHash) {
-      return NextResponse.json({ ok: false, error: "Respuesta incorrecta" }, { status: 200 });
-    }
+    if (!user)
+      return NextResponse.json({ ok: false, error: "Usuario no encontrado" }, { status: 404 });
 
-    const ok = bcrypt.compareSync(ans, user.securityAnswerHash);
-    if (!ok) {
-      return NextResponse.json({ ok: false, error: "Respuesta incorrecta" }, { status: 200 });
-    }
+    if (!user.securityAnswerHash)
+      return NextResponse.json({ ok: false, error: "El usuario no tiene respuesta de seguridad registrada" }, { status: 400 });
 
-    const token = crypto.randomBytes(32).toString("hex");
-    const expiresAt = new Date(Date.now() + RESET_TTL_MS);
+    const valid = await hashPassword(answer) === user.securityAnswerHash;
+    if (!valid)
+      return NextResponse.json({ ok: false, error: "Respuesta incorrecta" }, { status: 403 });
+
+    const token = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 1000 * 60 * 15); // 15 min
 
     await prisma.passwordReset.create({
-      data: { token, userId: user.id, expiresAt }
+      data: {
+        token,
+        userId: user.id,
+        expiresAt,
+        method: "qa", // <-- aquí está la corrección
+      },
     });
 
     return NextResponse.json({ ok: true, token, expiresAt: expiresAt.toISOString() });
-  } catch {
-    return NextResponse.json({ ok: false, error: "Bad request" }, { status: 400 });
+  } catch (e: any) {
+    console.error(e);
+    return NextResponse.json({ ok: false, error: e.message || "Server error" }, { status: 500 });
   }
 }
