@@ -1,19 +1,27 @@
-import { NextResponse } from "next/server";
-import { registerSchema } from "@/lib/validation";
-import { createUser } from "@/lib/auth";
-import { rateLimitOk } from "@/lib/rate-limit";
+import bcrypt from "bcryptjs";
+import { prisma } from "@/lib/db";
+import { withMethods, okJSON } from "@/lib/http";
 
-export async function POST(req: Request) {
-  const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0] || "unknown";
-  if (!rateLimitOk(ip, true)) return NextResponse.json({ ok:false, error:"Too many requests" }, { status:429 });
-  try {
-    const body = await req.json();
-    const data = registerSchema.parse(body);
-    await createUser(data.email, data.password, data.name ?? null);
-    return NextResponse.json({ ok:true }, { status:201 });
-  } catch (e: any) {
-    const msg = e?.message ?? "Bad request";
-    const code = /already/.test(msg) ? 409 : 400;
-    return NextResponse.json({ ok:false, error: msg }, { status: code });
-  }
+async function postHandler(req: Request) {
+  const body = await req.json().catch(() => ({} as any));
+  const email = (body.email || "").toString().trim().toLowerCase();
+  const name = (body.name || "").toString().trim();
+  const password = (body.password || "").toString();
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    return okJSON({ ok: false, error: "Invalid email" }, { status: 400 });
+  if (password.length < 8 || password.length > 72)
+    return okJSON({ ok: false, error: "Invalid password length" }, { status: 400 });
+
+  const exists = await prisma.user.findUnique({ where: { email } });
+  if (exists) return okJSON({ ok: false, error: "Email already registered" }, { status: 409 });
+
+  const passwordHash = bcrypt.hashSync(password, 10);
+  await prisma.user.create({ data: { email, passwordHash, name: name || null } });
+
+  return okJSON({ ok: true }, { status: 201 });
 }
+
+export const dynamic = "force-dynamic";
+export const POST = withMethods({ POST: postHandler });
+export const OPTIONS = withMethods({ OPTIONS: async () => okJSON({}, { status: 204 }) });
