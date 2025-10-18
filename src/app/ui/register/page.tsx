@@ -1,4 +1,5 @@
 "use client";
+
 import { useState } from "react";
 import { api } from "@/lib/api";
 
@@ -40,22 +41,33 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="center-wrap">
-      <div className="center-card" style={{ minWidth: 360, maxWidth: 420, width: "100%", minHeight: 520 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-          <div className="title">Crear cuenta</div>
-          <span className="badge">Nuevo</span>
+    <div className="auth-wrap">
+      <div className="auth-bg" />
+      <div className="auth-card">
+        <div className="auth-head">
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div className="auth-title">Crear cuenta</div>
+            <span className="badge">Nuevo</span>
+          </div>
+          <a className="btn ghost" href="/ui" aria-label="Volver al login">
+            Volver
+          </a>
         </div>
 
-        <div className="card" style={{ background: "var(--chip)", marginBottom: 12 }}>
-          <div style={{ fontWeight: 700, marginBottom: 6 }}>Estás en el modo registro</div>
+        <div className="card" style={{ background: "var(--chip)" }}>
+          <div style={{ fontWeight: 800, marginBottom: 6 }}>Estás en el modo registro</div>
           <div className="muted" style={{ fontSize: 13 }}>
-            Crea tu cuenta y entrarás automáticamente. Puedes volver al login cuando quieras.
+            Crea tu cuenta y entrarás directo. Puedes volver al login cuando quieras.
           </div>
         </div>
 
-        {/* Zona con altura mínima para alinear botones con el login */}
-        <form onSubmit={onSubmit} className="grid" style={{ gap: 10, minHeight: 260 }}>
+        {msg && (
+          <div className="card" style={{ borderColor: "var(--err)", color: "var(--err)", marginTop: 10 }}>
+            {msg}
+          </div>
+        )}
+
+        <form onSubmit={onSubmit} className="auth-form" style={{ marginTop: 12 }} autoComplete="on" noValidate>
           <input
             className="input"
             type="text"
@@ -63,6 +75,7 @@ export default function RegisterPage() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             autoComplete="name"
+            aria-label="Nombre"
           />
           <input
             className="input"
@@ -72,6 +85,7 @@ export default function RegisterPage() {
             onChange={(e) => setEmail(e.target.value)}
             required
             autoComplete="email"
+            aria-label="Email"
           />
           <input
             className="input"
@@ -82,19 +96,14 @@ export default function RegisterPage() {
             required
             minLength={8}
             autoComplete="new-password"
+            aria-label="Contraseña"
           />
 
-          {msg && (
-            <div className="card" style={{ borderColor: "var(--err)", color: "var(--err)" }}>
-              {msg}
-            </div>
-          )}
-
-          <div className="row" style={{ justifyContent: "space-between", marginTop: 6 }}>
+          <div className="auth-actions">
             <a className="btn secondary" href="/ui" aria-label="Volver al login">
-              Volver al login
+              Ya tengo cuenta
             </a>
-            <button className="btn-primary" disabled={loading}>
+            <button className="btn-primary" disabled={loading} aria-label="Crear y entrar">
               {loading ? "Creando…" : "Crear y entrar"}
             </button>
           </div>
