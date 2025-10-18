@@ -1,37 +1,62 @@
-import { withMethods, okJSON } from "@/lib/http";
-import { currentUser } from "@/lib/auth";
-import { prisma } from "@/lib/db";
-import { goalCreateSchema } from "@/lib/validation";
+// src/app/api/goals/route.ts
+export const runtime = "nodejs";
 
-async function getHandler() {
-  const u = await currentUser(); if (!u) return okJSON({ ok:false, error:"Unauthorized" }, { status:401 });
-  const rows = await prisma.goal.findMany({ where: { userId: BigInt(u.id) }, orderBy: { id: "asc" } });
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
+import { currentUser } from "@/lib/auth";
+import { z } from "zod";
+
+const goalCreateSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  target_date: z.string().datetime().optional().nullable(),
+});
+
+function json(data: any, status = 200) {
+  return NextResponse.json(data, { status, headers: { "Cache-Control": "no-store" } });
+}
+
+export async function OPTIONS() { return new NextResponse(null, { status: 204 }); }
+
+export async function GET() {
+  const u = await currentUser();
+  if (!u) return json({ ok: false, error: "Unauthorized" }, 401);
+  const me = BigInt(u.id);
+
+  const rows = await prisma.goal.findMany({
+    where: { userId: me },
+    orderBy: { id: "asc" },
+  });
+
   const goals = rows.map(g => ({
     id: g.id.toString(),
     userId: g.userId.toString(),
     title: g.title,
-    targetDate: g.targetDate,
+    targetDate: g.targetDate ? g.targetDate.toISOString() : null,
     isPublic: g.isPublic,
-    createdAt: g.createdAt
+    createdAt: g.createdAt.toISOString(),
   }));
-  return okJSON({ ok:true, goals });
+
+  return json({ ok: true, goals });
 }
 
-async function postHandler(req: Request) {
-  const u = await currentUser(); if (!u) return okJSON({ ok:false, error:"Unauthorized" }, { status:401 });
-  try {
-    const body = await req.json();
-    const data = goalCreateSchema.parse(body);
-    const g = await prisma.goal.create({
-      data: { userId: BigInt(u.id), title: data.title, targetDate: data.target_date ? new Date(data.target_date) : null }
-    });
-    return okJSON({ ok:true, goal_id: g.id.toString() }, { status:201 });
-  } catch {
-    return okJSON({ ok:false, error:"Bad request" }, { status:400 });
-  }
-}
+export async function POST(req: Request) {
+  const u = await currentUser();
+  if (!u) return json({ ok: false, error: "Unauthorized" }, 401);
+  const me = BigInt(u.id);
 
-export const dynamic = "force-dynamic";
-export const GET  = withMethods({ GET: getHandler });
-export const POST = withMethods({ POST: postHandler });
-export const OPTIONS = withMethods({ OPTIONS: async () => okJSON({}, { status:204 }) });
+  let body: any = {};
+  try { body = await req.json(); } catch {}
+
+  const data = goalCreateSchema.safeParse(body);
+  if (!data.success) return json({ ok: false, error: "Bad request" }, 400);
+
+  const g = await prisma.goal.create({
+    data: {
+      userId: me,
+      title: data.data.title,
+      targetDate: data.data.target_date ? new Date(data.data.target_date) : null,
+    },
+  });
+
+  return json({ ok: true, goal_id: g.id.toString() }, 201);
+}

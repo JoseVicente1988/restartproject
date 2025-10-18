@@ -1,17 +1,32 @@
-import { withMethods, okJSON } from "@/lib/http";
-import { currentUser } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+// src/app/api/goals/[id]/publish/route.ts
+export const runtime = "nodejs";
 
-async function postHandler(_req: Request, { params }: { params: { id: string } }) {
-  const u = await currentUser(); if (!u) return okJSON({ ok:false, error:"Unauthorized" }, { status:401 });
-  const id = BigInt(params.id);
-  const g = await prisma.goal.findUnique({ where: { id } });
-  if (!g || g.userId !== BigInt(u.id)) return okJSON({ ok:false, error:"Not found" }, { status:404 });
-  await prisma.goal.update({ where: { id }, data: { isPublic: true } });
-  await prisma.feedPost.create({ data: { userId: BigInt(u.id), content: `Meta publicada: ${g.title}` } });
-  return okJSON({ ok:true });
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
+import { currentUser } from "@/lib/auth";
+
+function json(data: any, status = 200) {
+  return NextResponse.json(data, { status, headers: { "Cache-Control": "no-store" } });
 }
 
-export const dynamic = "force-dynamic";
-export const POST = (req: Request, ctx: any) => withMethods({ POST: (r)=>postHandler(r, ctx) })(req);
-export const OPTIONS = withMethods({ OPTIONS: async () => okJSON({}, { status:204 }) });
+export async function OPTIONS() { return new NextResponse(null, { status: 204 }); }
+export async function GET() { return new NextResponse(null, { status: 204 }); }
+
+export async function POST(_req: Request, { params }: { params: { id: string } }) {
+  const u = await currentUser();
+  if (!u) return json({ ok: false, error: "Unauthorized" }, 401);
+
+  const id = BigInt(params.id);
+  const me = BigInt(u.id);
+
+  const g = await prisma.goal.findUnique({ where: { id } });
+  if (!g || g.userId !== me) return json({ ok: false, error: "Not found" }, 404);
+
+  await prisma.goal.update({ where: { id }, data: { isPublic: true } });
+
+  await prisma.feedPost.create({
+    data: { userId: me, content: `Meta publicada: ${g.title}` },
+  });
+
+  return json({ ok: true });
+}

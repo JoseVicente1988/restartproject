@@ -1,17 +1,61 @@
-import { withMethods, okJSON } from "@/lib/http";
-import { currentUser } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+// src/app/api/items/[id]/toggle/route.ts
+// (Si ya pegaste esta versión antes, déjala. Si no, usa esta completa.)
+export const runtime = "nodejs";
 
-async function postHandler(_req: Request, { params }: { params: { id: string } }) {
-  const u = await currentUser(); if (!u) return okJSON({ ok:false, error:"Unauthorized" }, { status:401 });
-  const id = BigInt(params.id);
-  const it = await prisma.item.findUnique({ where: { id } });
-  if (!it || it.userId !== BigInt(u.id)) return okJSON({ ok:false, error:"Not found" }, { status:404 });
-  await prisma.item.update({ where: { id }, data: { done: !it.done } });
-  return okJSON({ ok:true });
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
+import { currentUser } from "@/lib/auth";
+
+function json(data: any, status = 200) {
+  return NextResponse.json(data, { status, headers: { "Cache-Control": "no-store" } });
 }
 
-export const dynamic = "force-dynamic";
-// Next pasa params al 2º argumento de handlers exportados como const
-export const POST = (req: Request, ctx: any) => withMethods({ POST: (r)=>postHandler(r, ctx) })(req);
-export const OPTIONS = withMethods({ OPTIONS: async () => okJSON({}, { status:204 }) });
+export async function OPTIONS() { return new NextResponse(null, { status: 204 }); }
+export async function GET() { return new NextResponse(null, { status: 204 }); }
+
+export async function POST(
+  _req: Request,
+  { params }: { params: { id: string } }
+) {
+  const u = await currentUser();
+  if (!u) return json({ ok: false, error: "Unauthorized" }, 401);
+
+  const id = BigInt(params.id);
+  const me = BigInt(u.id);
+
+  const it = await prisma.item.findUnique({ where: { id } });
+  if (!it || it.userId !== me) return json({ ok: false, error: "Not found" }, 404);
+
+  await prisma.item.update({
+    where: { id },
+    data: { done: !it.done },
+  });
+
+  const remaining = await prisma.item.count({
+    where: { userId: me, done: false },
+  });
+
+  if (remaining === 0) {
+    await prisma.feedPost.create({
+      data: { userId: me, content: "¡Lista completada hoy! 🏁" },
+    });
+
+    const ach = await prisma.achievement.upsert({
+      where: { code: "LISTA_COMPLETA_DIA" },
+      update: {},
+      create: {
+        code: "LISTA_COMPLETA_DIA",
+        title: "Lista completa (hoy)",
+        desc: "Has completado toda la lista de compra.",
+      },
+    });
+
+    await prisma.achievementProgress.upsert({
+      where: { userId_achievementId: { userId: me, achievementId: ach.id } },
+      update: { achieved: true, progress: 1 },
+      create: { userId: me, achievementId: ach.id, achieved: true, progress: 1 },
+    });
+  }
+
+  return json({ ok: true });
+}
