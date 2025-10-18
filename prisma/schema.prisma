@@ -9,26 +9,32 @@ datasource db {
 }
 
 model User {
-  id           BigInt   @id @default(autoincrement())
-  email        String   @unique
-  passwordHash String
-  name         String?
-  locale       String?  @default("es")
-  theme        String?  @default("pastel")
-  photoBase64  String?
-  createdAt    DateTime @default(now())
+  id               BigInt   @id @default(autoincrement())
+  email            String   @unique
+  passwordHash     String
+  name             String?
+  locale           String?  @default("es")
+  theme            String?  @default("pastel")
+  photoBase64      String?
+  createdAt        DateTime @default(now())
+
+  // NUEVO: seguridad
+  securityQuestion   String?
+  securityAnswerHash String?
 
   sessions Session[]
   items    Item[]
   goals    Goal[]
   posts    FeedPost[]
 
-  // Relaciones inversas explícitas
   likes    FeedLike[]    @relation("LikesByUser")
   comments FeedComment[] @relation("CommentsByUser")
 
   sentDMs DM[] @relation("sent")
   recvDMs DM[] @relation("recv")
+
+  // resets de password
+  resets PasswordReset[]
 
   @@index([email])
 }
@@ -88,17 +94,14 @@ model Goal {
 model FeedPost {
   id        BigInt   @id @default(autoincrement())
   userId    BigInt
-  goalId    BigInt? // ← añadido para vincular metas con posts
   content   String
   createdAt DateTime @default(now())
 
-  // Relaciones
-  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  likes    FeedLike[]    @relation("LikesForPost")
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  likes   FeedLike[]  @relation("LikesForPost")
   comments FeedComment[] @relation("CommentsForPost")
 
-  @@index([userId])
-  @@index([goalId])
+  @@index([userId, id])
 }
 
 model FeedLike {
@@ -107,9 +110,7 @@ model FeedLike {
   userId    BigInt
   createdAt DateTime @default(now())
 
-  // Hacia el post
   post FeedPost @relation("LikesForPost", fields: [postId], references: [id], onDelete: Cascade)
-  // Hacia el usuario
   user User     @relation("LikesByUser", fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([postId, userId])
@@ -123,9 +124,7 @@ model FeedComment {
   text      String
   createdAt DateTime @default(now())
 
-  // Hacia el post
   post FeedPost @relation("CommentsForPost", fields: [postId], references: [id], onDelete: Cascade)
-  // Hacia el usuario
   user User     @relation("CommentsByUser", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([postId])
@@ -162,4 +161,16 @@ model AchievementProgress {
 
   @@unique([userId, achievementId])
   @@index([userId, achieved])
+}
+
+model PasswordReset {
+  id        BigInt   @id @default(autoincrement())
+  userId    BigInt
+  token     String   @unique
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
 }
