@@ -1,62 +1,80 @@
-// Helper de fetch con:
-// - Content-Type para JSON en POST/PUT/PATCH
-// - credentials: "include" (cookies de sesión)
-// - tolerante con 204/no JSON para evitar "Unexpected end of JSON"
+// src/lib/api.ts
+// Helper de fetch para el cliente (UI).
+// - credentials: "include" → envía/recibe cookies (auth)
+// - Si body es objeto, lo serializa a JSON y pone Content-Type
+// - Soporta 204/304 (sin cuerpo) evitando "Unexpected end of JSON"
+// - Si el servidor responde error con JSON, lanza Error(msg)
 
-type ApiOptions = RequestInit & {
-  // si pasas body como objeto, lo serializa solo
-  body?: string | object | null;
+export type ApiInit = RequestInit & {
+  body?: any; // puedes pasar string o objeto; si es objeto se JSON.stringify
 };
 
-export async function api(path: string, opts: ApiOptions = {}) {
-  const headers = new Headers(opts.headers || {});
-  const method = (opts.method || "GET").toUpperCase();
+export async function api(path: string, init: ApiInit = {}) {
+  const method = (init.method || "GET").toUpperCase();
 
-  // Serializa body si viene como objeto
+  // Clonar headers y normalizar Content-Type si body es objeto
+  const headers = new Headers(init.headers || {});
   let body: BodyInit | undefined = undefined;
-  if (opts.body !== undefined && opts.body !== null) {
-    if (typeof opts.body === "string") {
-      body = opts.body;
+
+  if (init.body !== undefined && init.body !== null) {
+    if (typeof init.body === "string" || init.body instanceof FormData) {
+      body = init.body as any;
+      // si es string y no hay Content-Type, asumimos JSON
+      if (typeof init.body === "string" && !headers.has("Content-Type")) {
+        headers.set("Content-Type", "application/json; charset=utf-8");
+      }
     } else {
       headers.set("Content-Type", "application/json; charset=utf-8");
-      body = JSON.stringify(opts.body);
+      body = JSON.stringify(init.body);
     }
   } else if (method === "POST" || method === "PUT" || method === "PATCH") {
-    // si no hay body pero es método con payload, fuerza header para coherencia
-    if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json; charset=utf-8");
+    // métodos que normalmente llevan cuerpo: aseguremos Content-Type si procede
+    if (!headers.has("Content-Type")) {
+      headers.set("Content-Type", "application/json; charset=utf-8");
+    }
   }
 
   const res = await fetch(path, {
-    ...opts,
+    ...init,
     method,
     headers,
     body,
-    credentials: "include", // importante para Set-Cookie/uso de cookie auth
+    credentials: "include", // importante para la cookie "auth"
+    cache: "no-store",
   });
 
-  // 204 o sin contenido: devuelve objeto mínimo
-  const ct = res.headers.get("content-type") || "";
-  const hasBody = res.status !== 204 && res.status !== 304;
+  const status = res.status;
+  const ok = res.ok;
+  const ct = (res.headers.get("content-type") || "").toLowerCase();
+  const hasBody = status !== 204 && status !== 304;
 
+  // Respuestas sin cuerpo
   if (!hasBody) {
-    // normaliza respuesta para tu UI
-    return { ok: res.ok, status: res.status };
+    return { ok, status };
   }
 
-  // Si no es JSON, genera error legible en vez de "Unexpected end of JSON"
-  if (!ct.toLowerCase().includes("application/json")) {
+  // Si no es JSON, devolvemos error legible
+  if (!ct.includes("application/json")) {
     const text = await res.text().catch(() => "");
-    const err = new Error(text || `Respuesta no JSON (HTTP ${res.status})`);
-    (err as any).status = res.status;
+    const msg = text || `Respuesta no JSON (HTTP ${status})`;
+    const err = new Error(msg);
+    (err as any).status = status;
     throw err;
   }
 
+  // Intentar parsear JSON
   const json = await res.json().catch(() => ({}));
-  // si el servidor devolvió error HTTP pero con JSON, propágalo
-  if (!res.ok && json && typeof json === "object") {
-    const e = new Error(json.error || `HTTP ${res.status}`);
-    (e as any).status = res.status;
-    throw e;
+
+  // Si HTTP es error, propagar mensaje del backend si existe
+  if (!ok) {
+    const msg =
+      (json && typeof json === "object" && (json.error || json.message)) ||
+      `HTTP ${status}`;
+    const err = new Error(msg);
+    (err as any).status = status;
+    (err as any).payload = json;
+    throw err;
   }
+
   return json;
 }
