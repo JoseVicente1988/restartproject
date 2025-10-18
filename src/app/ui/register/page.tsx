@@ -14,20 +14,20 @@ export default function RegisterPage() {
     setMsg("");
     setLoading(true);
     try {
-      const j = await api("/auth/register", {
+      const j = await api("/api/auth/register", {
         method: "POST",
-        body: JSON.stringify({
+        body: {
           email: email.trim().toLowerCase(),
           name: name.trim() || email.split("@")[0],
           password: pwd,
-        }),
+        },
       });
       if (!j?.ok) {
         setMsg(j?.error || "No se pudo crear la cuenta");
       } else {
-        const j2 = await api("/auth/login", {
+        const j2 = await api("/api/auth/login", {
           method: "POST",
-          body: JSON.stringify({ email: email.trim().toLowerCase(), password: pwd }),
+          body: { email: email.trim().toLowerCase(), password: pwd },
         });
         if (!j2?.ok) setMsg(j2?.error || "Cuenta creada, pero el login falló");
         else window.location.href = "/app";
@@ -41,20 +41,21 @@ export default function RegisterPage() {
 
   return (
     <div className="center-wrap">
-      <div className="center-card">
+      <div className="center-card" style={{ minWidth: 360, maxWidth: 420, width: "100%", minHeight: 520 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
           <div className="title">Crear cuenta</div>
           <span className="badge">Nuevo</span>
         </div>
 
-        <div className="card" style={{ background: "var(--chip)" }}>
+        <div className="card" style={{ background: "var(--chip)", marginBottom: 12 }}>
           <div style={{ fontWeight: 700, marginBottom: 6 }}>Estás en el modo registro</div>
           <div className="muted" style={{ fontSize: 13 }}>
-            Crea tu cuenta y entra directo. Puedes volver al login cuando quieras.
+            Crea tu cuenta y entrarás automáticamente. Puedes volver al login cuando quieras.
           </div>
         </div>
 
-        <form onSubmit={onSubmit} className="grid" style={{ gap: 10, marginTop: 12 }}>
+        {/* Zona con altura mínima para alinear botones con el login */}
+        <form onSubmit={onSubmit} className="grid" style={{ gap: 10, minHeight: 260 }}>
           <input
             className="input"
             type="text"

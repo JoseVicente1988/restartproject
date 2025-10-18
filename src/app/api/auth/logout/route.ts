@@ -7,8 +7,8 @@ function json(data: any, status = 200) {
   return NextResponse.json(data, { status, headers: { "Cache-Control": "no-store" } });
 }
 
-export async function GET() { return new NextResponse(null, { status: 204 }); }
 export async function OPTIONS() { return new NextResponse(null, { status: 204 }); }
+export async function GET() { return new NextResponse(null, { status: 204 }); }
 
 export async function POST(req: Request) {
   const cookieHeader = req.headers.get("cookie") || "";

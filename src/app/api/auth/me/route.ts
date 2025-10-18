@@ -7,6 +7,8 @@ function json(data: any, status = 200) {
   return NextResponse.json(data, { status, headers: { "Cache-Control": "no-store" } });
 }
 
+export async function OPTIONS() { return new NextResponse(null, { status: 204 }); }
+
 export async function GET(req: Request) {
   const cookieHeader = req.headers.get("cookie") || "";
   const m = cookieHeader.match(/(?:^|;\s*)auth=([^;]+)/);
@@ -24,5 +26,3 @@ export async function GET(req: Request) {
 
   return json({ ok:true, user: { ...u, id: (u.id as any as bigint).toString?.() ?? (u.id as any) }});
 }
-
-export async function OPTIONS() { return new NextResponse(null, { status: 204 }); }

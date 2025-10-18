@@ -17,13 +17,8 @@ function setCookie(res: NextResponse, name: string, value: string, maxAgeSec: nu
   );
 }
 
-export async function GET() {
-  // Si alguien abre /auth/login en GET (prefetch/recarga), no es un error.
-  return new NextResponse(null, { status: 204 });
-}
-export async function OPTIONS() {
-  return new NextResponse(null, { status: 204 });
-}
+export async function OPTIONS() { return new NextResponse(null, { status: 204 }); }
+export async function GET() { return new NextResponse(null, { status: 204 }); }
 
 export async function POST(req: Request) {
   let body: any = {};

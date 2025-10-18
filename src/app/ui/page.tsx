@@ -1,6 +1,6 @@
 "use client";
-
 import { useState } from "react";
+import { api } from "@/lib/api";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -13,12 +13,10 @@ export default function LoginPage() {
     setMsg("");
     setLoading(true);
     try {
-      const r = await fetch("/auth/login", {
+      const j = await api("/api/auth/login", {
         method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email: email.trim().toLowerCase(), password: pwd }),
+        body: { email: email.trim().toLowerCase(), password: pwd },
       });
-      const j = await r.json();
       if (!j?.ok) setMsg(j?.error || "Error al iniciar sesión");
       else window.location.href = "/app";
     } catch (err: any) {
@@ -30,7 +28,7 @@ export default function LoginPage() {
 
   return (
     <div className="center-wrap">
-      <div className="center-card">
+      <div className="center-card" style={{ minWidth: 360, maxWidth: 420, width: "100%", minHeight: 460 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
           <div className="title">GroFriends</div>
           <span className="badge">Beta</span>
@@ -40,7 +38,8 @@ export default function LoginPage() {
           Tu lista de la compra con feed, metas y amigos.
         </p>
 
-        <form onSubmit={onSubmit} className="grid" style={{ gap: 10 }}>
+        {/* Zona con altura mínima para que los botones no se muevan */}
+        <form onSubmit={onSubmit} className="grid" style={{ gap: 10, minHeight: 260 }}>
           <input
             className="input"
             type="email"
