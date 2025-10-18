@@ -2,30 +2,28 @@
   "name": "grofriends",
   "version": "1.0.0",
   "private": true,
-  "engines": {
-    "node": "22.x"
-  },
   "scripts": {
-    "dev": "next dev -p 3000",
+    "dev": "next dev",
     "build": "next build",
-    "start": "next start -p $PORT",
-    "migrate": "prisma migrate deploy",
-    "postinstall": "prisma generate"
+    "start": "next start",
+    "lint": "next lint",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio",
+    "prisma:seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
-    "@prisma/client": "5.19.1",
-    "bcryptjs": "2.4.3",
-    "next": "^14.2.33",
-    "react": "18.3.1",
-    "react-dom": "18.3.1",
-    "zod": "3.23.8"
+    "@prisma/client": "^5.18.0",
+    "next": "14.2.9",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tesseract.js": "^5.1.2"
   },
   "devDependencies": {
-    "@types/bcryptjs": "2.4.6",
-    "@types/node": "20.14.12",
-    "@types/react": "^18.3.26",
-    "@types/react-dom": "^18.3.7",
-    "prisma": "5.19.1",
-    "typescript": "5.6.3"
+    "eslint": "8.57.0",
+    "eslint-config-next": "14.2.9",
+    "prisma": "^5.18.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.3"
   }
 }
