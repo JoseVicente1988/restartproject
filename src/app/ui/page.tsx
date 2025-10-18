@@ -1,6 +1,6 @@
 "use client";
-
 import { useState } from "react";
+import { api } from "@/lib/api";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -13,12 +13,10 @@ export default function LoginPage() {
     setMsg("");
     setLoading(true);
     try {
-      const r = await fetch("/auth/login", {
+      const j = await api("/auth/login", {
         method: "POST",
-        headers: { "content-type": "application/json" },
         body: JSON.stringify({ email: email.trim().toLowerCase(), password: pwd }),
       });
-      const j = await r.json();
       if (!j?.ok) setMsg(j?.error || "Error al iniciar sesión");
       else window.location.href = "/app";
     } catch (err: any) {

@@ -1,37 +1,33 @@
+// Fetch robusto: maneja 204, cuerpos vacíos y respuestas no-JSON.
+// Lanza Error con mensaje útil cuando status !ok.
 export async function api(path: string, init: RequestInit = {}) {
-  const hasBody = init.body !== undefined;
   const headers = new Headers(init.headers || {});
-  if (hasBody && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  // Solo ponemos Content-Type si hay body
+  if (init.body && !headers.has("content-type")) {
+    headers.set("content-type", "application/json");
+  }
+  if (!headers.has("accept")) headers.set("accept", "application/json");
 
-  let r: Response;
-  try {
-    r = await fetch(path, { ...init, headers, credentials: "include", redirect: "follow" });
-  } catch (err: any) {
-    throw new Error(`Conexión fallida: ${err?.message || err}`);
+  const res = await fetch(path, { ...init, headers, credentials: "include" });
+
+  // 204 No Content => objeto vacío
+  if (res.status === 204) return {};
+
+  const ct = res.headers.get("content-type") || "";
+  const text = await res.text();
+
+  let data: any = null;
+  if (ct.includes("application/json") && text) {
+    try { data = JSON.parse(text); } catch { /* se ignora */ }
   }
 
-  if (r.status === 401) {
-    if (typeof window !== "undefined") window.location.href = "/ui";
-    throw new Error("No autorizado");
+  if (!res.ok) {
+    const msg = (data && (data.error || data.message))
+      || (text && text.slice(0, 400))
+      || `HTTP ${res.status}`;
+    throw new Error(msg);
   }
 
-  if (r.status === 204) return { ok: true };
-
-  const ct = r.headers.get("content-type") || "";
-  if (ct.includes("application/json")) {
-    const j = await r.json().catch(() => null);
-    if (!j) throw new Error(`HTTP ${r.status}: Respuesta JSON inválida`);
-    if (!(j as any).ok) {
-      const msg = (j as any).error || (j as any).message || `HTTP ${r.status}`;
-      throw new Error(msg);
-    }
-    return j;
-  }
-
-  const text = await r.text().catch(() => "");
-  if (!r.ok) {
-    if (text?.startsWith("<")) throw new Error(`HTTP ${r.status} (HTML).`);
-    throw new Error(text || `HTTP ${r.status}`);
-  }
-  return { ok: true, data: text };
+  // A veces devuelven 200 sin cuerpo JSON
+  return data ?? {};
 }

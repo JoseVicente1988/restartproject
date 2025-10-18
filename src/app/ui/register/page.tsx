@@ -1,6 +1,6 @@
 "use client";
-
 import { useState } from "react";
+import { api } from "@/lib/api";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
@@ -14,26 +14,21 @@ export default function RegisterPage() {
     setMsg("");
     setLoading(true);
     try {
-      const r = await fetch("/auth/register", {
+      const j = await api("/auth/register", {
         method: "POST",
-        headers: { "content-type": "application/json" },
         body: JSON.stringify({
           email: email.trim().toLowerCase(),
           name: name.trim() || email.split("@")[0],
           password: pwd,
         }),
       });
-      const j = await r.json();
       if (!j?.ok) {
         setMsg(j?.error || "No se pudo crear la cuenta");
       } else {
-        // login directo
-        const r2 = await fetch("/auth/login", {
+        const j2 = await api("/auth/login", {
           method: "POST",
-          headers: { "content-type": "application/json" },
           body: JSON.stringify({ email: email.trim().toLowerCase(), password: pwd }),
         });
-        const j2 = await r2.json();
         if (!j2?.ok) setMsg(j2?.error || "Cuenta creada, pero el login falló");
         else window.location.href = "/app";
       }
@@ -52,7 +47,6 @@ export default function RegisterPage() {
           <span className="badge">Nuevo</span>
         </div>
 
-        {/* Distintivo de vista de registro */}
         <div className="card" style={{ background: "var(--chip)" }}>
           <div style={{ fontWeight: 700, marginBottom: 6 }}>Estás en el modo registro</div>
           <div className="muted" style={{ fontSize: 13 }}>
