@@ -4,37 +4,23 @@
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
-
-    "jsx": "preserve",               // Next transforma el JSX
+    "jsx": "preserve",
     "strict": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "isolatedModules": true,
+    "incremental": true,
     "noEmit": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-
+    "allowJs": true,
+    "isolatedModules": true,
     "types": ["node", "react", "react-dom"],
-
     "baseUrl": "src",
     "paths": {
       "@/*": ["*"]
     },
-
-    "incremental": true,
     "plugins": [{ "name": "next" }]
-
-    /* Opcionales que puedes activar si quieres más seguridad:
-    "exactOptionalPropertyTypes": true,
-    "noUncheckedIndexedAccess": true,
-    "verbatimModuleSyntax": true
-    */
   },
-  "include": [
-    "next-env.d.ts",
-    "src/**/*",
-    "prisma/**/*",
-    ".next/types/**/*.ts"
-  ],
+  "include": ["next-env.d.ts", "src/**/*", "prisma/**/*", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]
 }
