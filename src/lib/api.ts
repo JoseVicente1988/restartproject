@@ -1,15 +1,15 @@
 // src/lib/api.ts
 // Helper de fetch para UI que acepta objetos en body y añade cookies.
-// Evita errores "Unexpected end of JSON" en 204/304.
+// Evita "Unexpected end of JSON" en 204/304 y da errores legibles.
 
-export type ApiInit = RequestInit & {
-  body?: any; // si es objeto lo serializamos
+export type ApiInit = Omit<RequestInit, "body"> & {
+  body?: any; // permitimos objeto y lo serializamos
 };
 
 export async function api(path: string, init: ApiInit = {}) {
-  const method = (init.method || "GET").toUpperCase();
+  const method = (init.method || "GET").toString().toUpperCase();
   const headers = new Headers(init.headers || {});
-  let body: BodyInit | undefined = undefined;
+  let body: BodyInit | undefined;
 
   if (init.body !== undefined && init.body !== null) {
     if (typeof init.body === "string" || init.body instanceof FormData) {
@@ -22,6 +22,8 @@ export async function api(path: string, init: ApiInit = {}) {
       body = JSON.stringify(init.body);
     }
   } else if (method === "POST" || method === "PUT" || method === "PATCH") {
+    // No obligamos a body, pero si no lo hay y es método con body,
+    // dejamos el Content-Type preparado por coherencia.
     if (!headers.has("Content-Type")) {
       headers.set("Content-Type", "application/json; charset=utf-8");
     }
@@ -57,9 +59,9 @@ export async function api(path: string, init: ApiInit = {}) {
     const msg =
       (json && typeof json === "object" && (json.error || json.message)) ||
       `HTTP ${status}`;
-    const err = new Error(msg);
-    (err as any).status = status;
-    (err as any).payload = json;
+    const err: any = new Error(msg);
+    err.status = status;
+    err.payload = json;
     throw err;
   }
 
