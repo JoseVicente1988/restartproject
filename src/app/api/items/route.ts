@@ -3,9 +3,9 @@ import { currentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 
-// Definición segura para validar lo que llega desde el frontend
+// Validación directa, independiente de otros módulos
 const itemCreateSchema = z.object({
-  title: z.string().min(1, "Falta título"),
+  title: z.string().min(1, "El título es obligatorio"),
   qty: z.number().int().positive().default(1),
   note: z.string().nullable().optional(),
   geo: z
@@ -19,6 +19,9 @@ const itemCreateSchema = z.object({
 
 type Geo = { lat?: number; lng?: number; radiusKm?: number };
 
+// =========================
+//   Funciones auxiliares
+// =========================
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -35,7 +38,7 @@ async function findCheapestByName(
   name: string,
   geo?: Geo
 ): Promise<{ storeId: bigint; storeName: string; price: number } | null> {
-  // Si los modelos no existen, evitar error
+  // evitar errores si prisma aún no tiene esos modelos
   // @ts-ignore
   const hasStore = (prisma as any).store && (prisma as any).price && (prisma as any).product;
   if (!hasStore) return null;
@@ -88,29 +91,45 @@ async function findCheapestByName(
   return best;
 }
 
+// =========================
+//   GET - Obtener lista
+// =========================
 export async function GET() {
   const u = await currentUser();
-  if (!u) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  if (!u) {
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
 
-  const items = await prisma.item.findMany({
-    where: { userId: BigInt(u.id) },
-    orderBy: [{ done: "asc" }, { id: "desc" }],
-    select: { id: true, title: true, qty: true, note: true, done: true, createdAt: true },
-  });
+  try {
+    const items = await prisma.item.findMany({
+      where: { userId: BigInt(u.id) },
+      orderBy: [{ done: "asc" }, { id: "desc" }],
+      select: { id: true, title: true, qty: true, note: true, done: true, createdAt: true },
+    });
 
-  return NextResponse.json({ ok: true, items });
+    return NextResponse.json({ ok: true, items });
+  } catch (err: any) {
+    console.error("❌ Error en GET /api/items:", err);
+    return NextResponse.json({ ok: false, error: "Internal server error" }, { status: 500 });
+  }
 }
 
+// =========================
+//   POST - Crear nuevo ítem
+// =========================
 export async function POST(req: Request) {
   const u = await currentUser();
-  if (!u) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  if (!u) {
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
 
   try {
     const raw = await req.json();
-    console.log("Datos recibidos en /api/items:", raw);
+    console.log("📦 Datos recibidos en /api/items:", raw);
 
     const data = itemCreateSchema.parse(raw);
 
+    // Crear ítem
     const created = await prisma.item.create({
       data: {
         userId: BigInt(u.id),
@@ -120,39 +139,53 @@ export async function POST(req: Request) {
       },
     });
 
-    // Si ya no hay pendientes → se publica en el feed
-    const remaining = await prisma.item.count({ where: { userId: BigInt(u.id), done: false } });
-    if (remaining === 0) {
-      await prisma.feedPost.create({
-        data: { userId: BigInt(u.id), content: "¡Lista completada hoy! 🏁" },
-      });
+    // Logros de feed
+    try {
+      const remaining = await prisma.item.count({ where: { userId: BigInt(u.id), done: false } });
+      if (remaining === 0 && (prisma as any).feedPost) {
+        await prisma.feedPost.create({
+          data: { userId: BigInt(u.id), content: "¡Lista completada hoy! 🏁" },
+        });
+      }
+    } catch (inner) {
+      console.warn("⚠️ No se pudo registrar logro en feed:", inner);
     }
 
     // Buscar sugerencia de precio
-    const suggestion = await findCheapestByName(data.title, data.geo);
+    let suggestion: { storeId: bigint; storeName: string; price: number } | null = null;
+    try {
+      suggestion = await findCheapestByName(data.title, data.geo);
+    } catch (inner) {
+      console.warn("⚠️ Error buscando sugerencia de precio:", inner);
+    }
 
-    // Guardar o actualizar en memoria de precios conocidos
-    if (suggestion) {
-      const existing = await prisma.userKnownPrice.findFirst({
-        where: { userId: BigInt(u.id), name: data.title },
-      });
-      if (!existing || Number(existing.price) > suggestion.price) {
-        if (existing) {
-          await prisma.userKnownPrice.update({
-            where: { id: existing.id },
-            data: { storeId: suggestion.storeId, price: suggestion.price },
-          });
-        } else {
-          await prisma.userKnownPrice.create({
-            data: {
-              userId: BigInt(u.id),
-              name: data.title,
-              storeId: suggestion.storeId,
-              price: suggestion.price,
-            },
-          });
+    // Guardar en memoria de precios conocidos
+    try {
+      if (suggestion && (prisma as any).userKnownPrice) {
+        const existing = await prisma.userKnownPrice.findFirst({
+          where: { userId: BigInt(u.id), name: data.title },
+        });
+
+        if (!existing || Number(existing.price) > suggestion.price) {
+          if (existing) {
+            await prisma.userKnownPrice.update({
+              where: { id: existing.id },
+              data: { storeId: suggestion.storeId, price: suggestion.price },
+            });
+          } else {
+            await prisma.userKnownPrice.create({
+              data: {
+                userId: BigInt(u.id),
+                name: data.title,
+                storeId: suggestion.storeId,
+                price: suggestion.price,
+              },
+            });
+          }
         }
       }
+    } catch (inner) {
+      console.warn("⚠️ No se pudo guardar en userKnownPrice:", inner);
     }
 
     return NextResponse.json({
@@ -167,10 +200,13 @@ export async function POST(req: Request) {
         : null,
     });
   } catch (e: any) {
-    console.error("Error en POST /api/items:", e);
+    console.error("❌ Error en POST /api/items:");
+    console.error(e?.message);
+    console.error(e?.stack);
+    console.error("Detalles:", e);
     return NextResponse.json(
-      { ok: false, error: e.message || "Bad request" },
-      { status: 400 }
+      { ok: false, error: e?.message || "Internal server error" },
+      { status: 500 }
     );
   }
 }
