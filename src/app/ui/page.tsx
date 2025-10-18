@@ -4,81 +4,132 @@ import { useState } from "react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [msg, setMsg] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [pwd, setPwd] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState("");
 
-  const onSubmit = async (e: React.FormEvent) => {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setBusy(true); setMsg("Autenticando…");
+    setMsg("");
+    setLoading(true);
     try {
-      const r = await fetch("/api/auth/login", {
+      const r = await fetch("/auth/login", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+        body: JSON.stringify({ email: email.trim().toLowerCase(), password: pwd }),
       });
       const j = await r.json();
-      if (!j?.ok) { setMsg(j?.error || "Error"); setBusy(false); return; }
-      setMsg(null);
-      window.location.href = "/app";
+      if (!j?.ok) {
+        setMsg(j?.error || "Error al iniciar sesión");
+      } else {
+        // Cookie de sesión la pone el backend; aquí solo navegamos
+        window.location.href = "/app";
+      }
     } catch (err: any) {
-      setMsg(String(err?.message || err));
-      setBusy(false);
+      setMsg(err?.message || "Error de red");
+    } finally {
+      setLoading(false);
     }
-  };
+  }
 
-  const onRegister = async () => {
-    setBusy(true); setMsg("Creando cuenta…");
+  async function onRegister() {
+    setMsg("");
+    setLoading(true);
     try {
-      const r = await fetch("/api/auth/register", {
+      // registro rápido en la misma pantalla
+      const r = await fetch("/auth/register", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email: email.trim().toLowerCase(), password, name: "" }),
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          name: email.split("@")[0],
+          password: pwd,
+        }),
       });
       const j = await r.json();
-      if (!j?.ok) { setMsg(j?.error || "Error"); setBusy(false); return; }
-      setMsg("Cuenta creada. Ahora inicia sesión.");
-      setBusy(false);
-    } catch (e: any) {
-      setMsg(String(e?.message || e));
-      setBusy(false);
+      if (!j?.ok) {
+        setMsg(j?.error || "No se pudo crear la cuenta");
+      } else {
+        // tras crear, logueamos directo
+        const r2 = await fetch("/auth/login", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ email: email.trim().toLowerCase(), password: pwd }),
+        });
+        const j2 = await r2.json();
+        if (!j2?.ok) {
+          setMsg(j2?.error || "Cuenta creada, pero el login falló");
+        } else {
+          window.location.href = "/app";
+        }
+      }
+    } catch (err: any) {
+      setMsg(err?.message || "Error de red");
+    } finally {
+      setLoading(false);
     }
-  };
+  }
 
   return (
-    <div className="min-h-screen grid place-items-center p-4 bg-grad">
-      <div className="login-card">
-        <div className="login-header">
-          <h1>GroFriends</h1>
-          <p>Listas, metas, feed y amigos — rápido y sin humo.</p>
+    <div className="center-wrap">
+      <div className="center-card">
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+          <div className="title">GroFriends</div>
+          <span className="badge">Beta</span>
         </div>
 
-        <form onSubmit={onSubmit} className="space-y-3">
+        <p className="muted" style={{ marginTop: 0, marginBottom: 14 }}>
+          Tu lista de la compra con feed, metas y amigos.
+        </p>
+
+        <form onSubmit={onSubmit} className="grid" style={{ gap: 10 }}>
           <input
-            placeholder="Email"
+            className="input"
             type="email"
+            placeholder="Email"
             value={email}
-            onChange={e=>setEmail(e.target.value)}
-            className="inp" required
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoComplete="email"
           />
           <input
-            placeholder="Password (min 8)"
+            className="input"
             type="password"
-            value={password}
-            onChange={e=>setPassword(e.target.value)}
-            className="inp" required minLength={8}
+            placeholder="Contraseña (mín. 8)"
+            value={pwd}
+            onChange={(e) => setPwd(e.target.value)}
+            required
+            minLength={8}
+            autoComplete="current-password"
           />
-          <div className="btn-row">
-            <button disabled={busy} className="btn-primary">
-              {busy ? "…" : "Entrar"}
+
+          {msg && (
+            <div className="card" style={{ borderColor: "var(--err)", color: "var(--err)" }}>
+              {msg}
+            </div>
+          )}
+
+          <div className="row" style={{ justifyContent: "space-between", marginTop: 6 }}>
+            <button className="btn-primary" disabled={loading}>
+              {loading ? "Entrando…" : "Entrar"}
             </button>
-            <button type="button" disabled={busy} onClick={onRegister} className="btn-ghost">
-              Crear cuenta
+            <button
+              type="button"
+              className="btn secondary"
+              onClick={onRegister}
+              disabled={loading}
+              title="Crear cuenta con los mismos datos de arriba"
+            >
+              {loading ? "Creando…" : "Crear cuenta"}
             </button>
           </div>
         </form>
 
-        {msg && <div className="login-msg">{msg}</div>}
+        <div className="hr" />
+
+        <div className="muted" style={{ fontSize: 12, textAlign: "center" }}>
+          Consejito: usa una contraseña larga. Nosotros la guardamos hasheada.
+        </div>
       </div>
     </div>
   );
