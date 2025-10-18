@@ -1,4 +1,4 @@
-// prisma/schema.prisma
+// ---------- Generador y datasource ----------
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,29 +9,36 @@ datasource db {
   relationMode = "prisma"
 }
 
+// ---------- Usuarios / Sesiones ----------
 model User {
-  id                 BigInt   @id @default(autoincrement())
-  email              String   @unique
-  passwordHash       String
+  id           BigInt   @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  locale       String?  @default("es")
+  theme        String?  @default("pastel")
+  photoBase64  String?
+  createdAt    DateTime @default(now())
+
+  // Seguridad (opcional, para reset por pregunta)
   securityQuestion   String?
   securityAnswerHash String?
-  name               String?
-  locale             String?  @default("es")
-  theme              String?  @default("pastel")
-  photoBase64        String?
-  createdAt          DateTime @default(now())
 
-  sessions Session[]
-  items    Item[]
-  goals    Goal[]
-  posts    FeedPost[]
+  // Relaciones app
+  sessions   Session[]
+  items      Item[]
+  goals      Goal[]
+  posts      FeedPost[]
+  likes      FeedLike[]    @relation("LikesByUser")
+  comments   FeedComment[] @relation("CommentsByUser")
+  sentDMs    DM[]          @relation("sent")
+  recvDMs    DM[]          @relation("recv")
 
-  likes    FeedLike[]    @relation("LikesByUser")
-  comments FeedComment[] @relation("CommentsByUser")
+  // Reset por token
+  passwordResets PasswordReset[]
 
-  sentDMs       DM[]            @relation("sent")
-  recvDMs       DM[]            @relation("recv")
-  PasswordReset PasswordReset[]
+  // Precios aprendidos por usuario
+  knownPrices UserKnownPrice[]
 
   @@index([email])
 }
@@ -49,6 +56,7 @@ model Session {
   @@index([token])
 }
 
+// ---------- App: Lista / Amigos / Metas / Feed / DMs ----------
 model Item {
   id        BigInt   @id @default(autoincrement())
   userId    BigInt
@@ -67,7 +75,7 @@ model Friendship {
   id          BigInt   @id @default(autoincrement())
   userA       BigInt
   userB       BigInt
-  status      String
+  status      String   // "pending" | "accepted"
   requestedBy BigInt
   createdAt   DateTime @default(now())
 
@@ -94,8 +102,8 @@ model FeedPost {
   content   String
   createdAt DateTime @default(now())
 
-  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  likes    FeedLike[]    @relation("LikesForPost")
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  likes   FeedLike[]   @relation("LikesForPost")
   comments FeedComment[] @relation("CommentsForPost")
 
   @@index([userId, id])
@@ -144,39 +152,33 @@ model DM {
   @@index([senderId, receiverId, id])
 }
 
-model Achievement {
-  id        BigInt   @id @default(autoincrement())
-  code      String   @unique
-  title     String
-  desc      String
+// ---------- Reset por token ----------
+model PasswordReset {
+  token     String   @id
+  userId    BigInt
+  method    String   // "qa" | "email"
+  expiresAt DateTime
   createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
-model AchievementProgress {
-  id            BigInt   @id @default(autoincrement())
-  userId        BigInt
-  achievementId BigInt
-  progress      Int      @default(0)
-  achieved      Boolean  @default(false)
-  updatedAt     DateTime @updatedAt
-
-  @@unique([userId, achievementId])
-  @@index([userId, achieved])
-}
-
-// =========================
-//   MÓDULO DE PRECIOS
-// =========================
-
+// ---------- Precios / Tiendas / Productos ----------
 model Store {
   id        BigInt   @id @default(autoincrement())
-  name      String   @unique
-  address   String?
+  name      String
   lat       Float
   lng       Float
+  address   String?
   createdAt DateTime @default(now())
 
-  prices Price[]
+  prices      Price[]
+  knownPrices UserKnownPrice[]
+
+  @@index([name])
 }
 
 model Product {
@@ -194,23 +196,28 @@ model Price {
   id        BigInt   @id @default(autoincrement())
   productId BigInt
   storeId   BigInt
-  price     Float
-  currency  String   @default("EUR")
+  price     Decimal  @db.Decimal(10, 2)
+  updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   store   Store   @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
   @@unique([productId, storeId])
-  @@index([productId, storeId])
+  @@index([storeId])
 }
 
-model PasswordReset {
-  token     String   @id
+// ---------- Mejor precio conocido por usuario ----------
+model UserKnownPrice {
+  id        BigInt   @id @default(autoincrement())
   userId    BigInt
-  expiresAt DateTime
+  name      String
+  storeId   BigInt
+  price     Decimal  @db.Decimal(10, 2)
+  updatedAt DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store Store @relation(fields: [storeId], references: [id])
 
-  @@index([userId, expiresAt])
+  @@index([userId, name])
 }
