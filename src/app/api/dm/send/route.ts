@@ -1,29 +1,22 @@
+import { withMethods, okJSON } from "@/lib/http";
 import { currentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { json } from "@/lib/utils";
 
-export async function POST(req: Request) {
-  try {
-    const u = await currentUser();
-    if (!u) return json({ ok: false, error: "Unauthorized" }, { status: 401 });
+async function postHandler(req: Request) {
+  const u = await currentUser(); if (!u) return okJSON({ ok:false, error:"Unauthorized" }, { status:401 });
+  const { friend_id, text } = await req.json().catch(()=>({}));
+  const friendId = BigInt(friend_id||0); const t = (text||"").toString().trim();
+  if (!friendId || !t) return okJSON({ ok:false, error:"Missing friend_id or text" }, { status:400 });
 
-    const body = await req.json().catch(() => ({}));
-    const friend_id = BigInt(body?.friend_id || 0);
-    const text = String(body?.text || "").trim();
-    if (!friend_id || !text) return json({ ok: false, error: "Missing friend_id or text" }, { status: 400 });
+  const me = BigInt(u.id);
+  const [a,b] = me < friendId ? [me, friendId] : [friendId, me];
+  const fr = await prisma.friendship.findUnique({ where: { userA_userB: { userA: a, userB: b } } });
+  if (!fr || fr.status !== "accepted") return okJSON({ ok:false, error:"Not friends" }, { status:403 });
 
-    const me = BigInt(u.id);
-    const a = me < friend_id ? me : friend_id;
-    const b = me < friend_id ? friend_id : me;
-    const fr = await prisma.friendship.findUnique({ where: { userA_userB: { userA: a, userB: b } } });
-    if (!fr || fr.status !== "accepted") return json({ ok: false, error: "Not friends" }, { status: 403 });
-
-    const created = await prisma.dM.create({
-      data: { senderId: me, receiverId: friend_id, text },
-    });
-
-    return json({ ok: true, message: { id: created.id, text: created.text, createdAt: created.createdAt } }, { status: 201 });
-  } catch (err: any) {
-    return json({ ok: false, error: err?.message || "Bad request" }, { status: 400 });
-  }
+  await prisma.dM.create({ data: { senderId: me, receiverId: friendId, text: t } });
+  return okJSON({ ok:true }, { status:201 });
 }
+
+export const dynamic = "force-dynamic";
+export const POST = withMethods({ POST: postHandler });
+export const OPTIONS = withMethods({ OPTIONS: async () => okJSON({}, { status:204 }) });

@@ -3,7 +3,7 @@ import { currentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { itemCreateSchema } from "@/lib/validation";
 
-async function GET() {
+async function getHandler() {
   const u = await currentUser(); if (!u) return okJSON({ ok:false, error:"Unauthorized" }, { status:401 });
   const items = await prisma.item.findMany({
     where: { userId: BigInt(u.id) },
@@ -12,7 +12,7 @@ async function GET() {
   return okJSON({ ok:true, items });
 }
 
-async function POST(req: Request) {
+async function postHandler(req: Request) {
   const u = await currentUser(); if (!u) return okJSON({ ok:false, error:"Unauthorized" }, { status:401 });
   try {
     const data = itemCreateSchema.parse(await req.json());
@@ -30,6 +30,6 @@ async function POST(req: Request) {
 }
 
 export const dynamic = "force-dynamic";
-export const GET  = withMethods({ GET });
-export const POST = withMethods({ POST });
+export const GET = withMethods({ GET: getHandler });
+export const POST = withMethods({ POST: postHandler });
 export const OPTIONS = withMethods({ OPTIONS: async () => okJSON({}, { status:204 }) });
