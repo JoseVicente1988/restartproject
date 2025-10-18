@@ -136,7 +136,7 @@ export default function RegisterPage() {
         .auth-card {
           width: 100%;
           max-width: 420px;
-          background: var(--card, #14161b);
+          background: var(--card, #ffffffff);
           border: 1px solid var(--border, #23252c);
           border-radius: 16px;
           padding: 18px 16px 16px;
@@ -169,9 +169,9 @@ export default function RegisterPage() {
         .badge {
           padding: 4px 8px;
           border-radius: 999px;
-          background: #1a1e27;
+          background: #ffffffff;
           border: 1px solid var(--border, #23252c);
-          color: var(--muted, #9aa0a6);
+          color: var(--muted, #000000ff);
           font-size: 12px;
         }
         .muted {
@@ -179,7 +179,7 @@ export default function RegisterPage() {
         }
         .note {
           border: 1px solid var(--border, #23252c);
-          background: var(--chip, #0f1116);
+          background: var(--chip, #ffffffff);
           border-radius: 12px;
           padding: 10px 12px;
           margin: 0 0 12px 0;
@@ -201,8 +201,8 @@ export default function RegisterPage() {
           padding: 11px 12px;
           border-radius: 12px;
           border: 1px solid var(--border, #23252c);
-          background: #0f1116;
-          color: var(--ink, #e8e8ea);
+          background: #ffffffff;
+          color: var(--ink, #000000ff);
           outline: none;
         }
         .input:focus {
@@ -210,9 +210,9 @@ export default function RegisterPage() {
           box-shadow: 0 0 0 3px rgba(125, 211, 252, 0.08);
         }
         .alert {
-          border: 1px solid var(--err, #fca5a5);
-          color: var(--err, #fca5a5);
-          background: rgba(252, 165, 165, 0.05);
+          border: 1px solid var(--err, #ff0707ff);
+          color: var(--err, #000000ff);
+          background: rgba(255, 255, 255, 1);
           border-radius: 12px;
           padding: 10px 12px;
         }
@@ -237,8 +237,8 @@ export default function RegisterPage() {
           padding: 10px 14px;
           border-radius: 12px;
           border: 1px solid var(--border, #23252c);
-          background: #1a1e27;
-          color: var(--ink, #e8e8ea);
+          background: #ffffffff;
+          color: var(--ink, #000000ff);
           cursor: pointer;
           text-decoration: none;
         }

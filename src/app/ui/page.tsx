@@ -94,7 +94,7 @@ export default function LoginPage() {
         .auth-card {
           width: 100%;
           max-width: 420px;
-          background: var(--card, #14161b);
+          background: var(--card, #ffffffff);
           border: 1px solid var(--border, #23252c);
           border-radius: 16px;
           padding: 18px 16px 16px;
@@ -127,9 +127,9 @@ export default function LoginPage() {
         .badge {
           padding: 4px 8px;
           border-radius: 999px;
-          background: #1a1e27;
+          background: #ffffffff;
           border: 1px solid var(--border, #23252c);
-          color: var(--muted, #9aa0a6);
+          color: var(--muted, #000000ff);
           font-size: 12px;
         }
         .muted {
@@ -147,8 +147,8 @@ export default function LoginPage() {
           padding: 11px 12px;
           border-radius: 12px;
           border: 1px solid var(--border, #23252c);
-          background: #0f1116;
-          color: var(--ink, #e8e8ea);
+          background: #ffffffff;
+          color: var(--ink, #000000ff);
           outline: none;
         }
         .input:focus {
@@ -157,8 +157,8 @@ export default function LoginPage() {
         }
         .alert {
           border: 1px solid var(--err, #fca5a5);
-          color: var(--err, #fca5a5);
-          background: rgba(252, 165, 165, 0.05);
+          color: var(--err, #000000ff);
+          background: rgba(255, 255, 255, 0.05);
           border-radius: 12px;
           padding: 10px 12px;
         }
@@ -183,8 +183,8 @@ export default function LoginPage() {
           padding: 10px 14px;
           border-radius: 12px;
           border: 1px solid var(--border, #23252c);
-          background: #1a1e27;
-          color: var(--ink, #e8e8ea);
+          background: #ffffffff;
+          color: var(--ink, #000000ff);
           cursor: pointer;
           text-decoration: none;
         }
