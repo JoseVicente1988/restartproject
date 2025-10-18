@@ -13,8 +13,8 @@ model User {
   id                 BigInt   @id @default(autoincrement())
   email              String   @unique
   passwordHash       String
-  securityQuestion   String? // Nueva columna opcional
-  securityAnswerHash String? // Nueva columna opcional
+  securityQuestion   String?
+  securityAnswerHash String?
   name               String?
   locale             String?  @default("es")
   theme              String?  @default("pastel")
@@ -29,8 +29,9 @@ model User {
   likes    FeedLike[]    @relation("LikesByUser")
   comments FeedComment[] @relation("CommentsByUser")
 
-  sentDMs DM[] @relation("sent")
-  recvDMs DM[] @relation("recv")
+  sentDMs       DM[]            @relation("sent")
+  recvDMs       DM[]            @relation("recv")
+  PasswordReset PasswordReset[]
 
   @@index([email])
 }
@@ -202,4 +203,14 @@ model Price {
 
   @@unique([productId, storeId])
   @@index([productId, storeId])
+}
+
+model PasswordReset {
+  token     String   @id
+  userId    BigInt
+  expiresAt DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
 }
