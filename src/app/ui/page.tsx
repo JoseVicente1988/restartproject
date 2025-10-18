@@ -19,50 +19,8 @@ export default function LoginPage() {
         body: JSON.stringify({ email: email.trim().toLowerCase(), password: pwd }),
       });
       const j = await r.json();
-      if (!j?.ok) {
-        setMsg(j?.error || "Error al iniciar sesión");
-      } else {
-        // Cookie de sesión la pone el backend; aquí solo navegamos
-        window.location.href = "/app";
-      }
-    } catch (err: any) {
-      setMsg(err?.message || "Error de red");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function onRegister() {
-    setMsg("");
-    setLoading(true);
-    try {
-      // registro rápido en la misma pantalla
-      const r = await fetch("/auth/register", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          email: email.trim().toLowerCase(),
-          name: email.split("@")[0],
-          password: pwd,
-        }),
-      });
-      const j = await r.json();
-      if (!j?.ok) {
-        setMsg(j?.error || "No se pudo crear la cuenta");
-      } else {
-        // tras crear, logueamos directo
-        const r2 = await fetch("/auth/login", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ email: email.trim().toLowerCase(), password: pwd }),
-        });
-        const j2 = await r2.json();
-        if (!j2?.ok) {
-          setMsg(j2?.error || "Cuenta creada, pero el login falló");
-        } else {
-          window.location.href = "/app";
-        }
-      }
+      if (!j?.ok) setMsg(j?.error || "Error al iniciar sesión");
+      else window.location.href = "/app";
     } catch (err: any) {
       setMsg(err?.message || "Error de red");
     } finally {
@@ -113,23 +71,11 @@ export default function LoginPage() {
             <button className="btn-primary" disabled={loading}>
               {loading ? "Entrando…" : "Entrar"}
             </button>
-            <button
-              type="button"
-              className="btn secondary"
-              onClick={onRegister}
-              disabled={loading}
-              title="Crear cuenta con los mismos datos de arriba"
-            >
-              {loading ? "Creando…" : "Crear cuenta"}
-            </button>
+            <a className="btn secondary" href="/ui/register" aria-label="Ir a crear cuenta">
+              Crear cuenta
+            </a>
           </div>
         </form>
-
-        <div className="hr" />
-
-        <div className="muted" style={{ fontSize: 12, textAlign: "center" }}>
-          Consejito: usa una contraseña larga. Nosotros la guardamos hasheada.
-        </div>
       </div>
     </div>
   );

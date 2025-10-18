@@ -1,53 +1,110 @@
 "use client";
+
 import { useState } from "react";
-import Link from "next/link";
-import { api } from "@/lib/api";
 
-export default function RegisterPage(){
-  const [email,setEmail] = useState("");
-  const [name,setName] = useState("");
-  const [password,setPassword] = useState("");
-  const [msg,setMsg] = useState("");
+export default function RegisterPage() {
+  const [email, setEmail] = useState("");
+  const [pwd, setPwd] = useState("");
+  const [name, setName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState("");
 
-  const onSubmit = async (e: React.FormEvent) => {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setMsg("Creando usuario…");
-    try{
-      const j = await api("/api/auth/register",{ method:"POST", body: JSON.stringify({ email: email.trim().toLowerCase(), name: name.trim(), password })});
-      if (j.ok) {
-        setMsg("Cuenta creada. Redirigiendo…");
-        setTimeout(()=> window.location.href="/ui", 700);
+    setMsg("");
+    setLoading(true);
+    try {
+      const r = await fetch("/auth/register", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          name: name.trim() || email.split("@")[0],
+          password: pwd,
+        }),
+      });
+      const j = await r.json();
+      if (!j?.ok) {
+        setMsg(j?.error || "No se pudo crear la cuenta");
+      } else {
+        // login directo
+        const r2 = await fetch("/auth/login", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ email: email.trim().toLowerCase(), password: pwd }),
+        });
+        const j2 = await r2.json();
+        if (!j2?.ok) setMsg(j2?.error || "Cuenta creada, pero el login falló");
+        else window.location.href = "/app";
       }
-    }catch(err:any){
-      setMsg(err.message || "Error");
+    } catch (err: any) {
+      setMsg(err?.message || "Error de red");
+    } finally {
+      setLoading(false);
     }
-  };
+  }
 
   return (
-    <main className="center-wrap">
-      <div className="auth-card">
-        <div className="auth-head">
-          <div className="auth-brand">G</div>
-          <div>
-            <div className="auth-title">Crear cuenta</div>
-            <div className="auth-sub">Es gratis y rápido</div>
+    <div className="center-wrap">
+      <div className="center-card">
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+          <div className="title">Crear cuenta</div>
+          <span className="badge">Nuevo</span>
+        </div>
+
+        {/* Distintivo de vista de registro */}
+        <div className="card" style={{ background: "var(--chip)" }}>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>Estás en el modo registro</div>
+          <div className="muted" style={{ fontSize: 13 }}>
+            Crea tu cuenta y entra directo. Puedes volver al login cuando quieras.
           </div>
         </div>
-        <form className="auth-form" onSubmit={onSubmit}>
-          <input className="input" type="email" placeholder="Email" required value={email} onChange={e=>setEmail(e.target.value)} />
-          <input className="input" type="text" placeholder="Nombre (opcional)" value={name} onChange={e=>setName(e.target.value)} />
-          <input className="input" type="password" placeholder="Password (min 8)" required minLength={8} value={password} onChange={e=>setPassword(e.target.value)} />
-          <div className="auth-actions">
-            <button className="btn" type="submit">Registrar</button>
-            <Link className="btn secondary" href="/ui">Iniciar sesión</Link>
+
+        <form onSubmit={onSubmit} className="grid" style={{ gap: 10, marginTop: 12 }}>
+          <input
+            className="input"
+            type="text"
+            placeholder="Nombre (opcional)"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoComplete="name"
+          />
+          <input
+            className="input"
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoComplete="email"
+          />
+          <input
+            className="input"
+            type="password"
+            placeholder="Contraseña (mín. 8)"
+            value={pwd}
+            onChange={(e) => setPwd(e.target.value)}
+            required
+            minLength={8}
+            autoComplete="new-password"
+          />
+
+          {msg && (
+            <div className="card" style={{ borderColor: "var(--err)", color: "var(--err)" }}>
+              {msg}
+            </div>
+          )}
+
+          <div className="row" style={{ justifyContent: "space-between", marginTop: 6 }}>
+            <a className="btn secondary" href="/ui" aria-label="Volver al login">
+              Volver al login
+            </a>
+            <button className="btn-primary" disabled={loading}>
+              {loading ? "Creando…" : "Crear y entrar"}
+            </button>
           </div>
-          {msg && <div className="small-muted" style={{
-            color: msg.startsWith("Creando") ? "var(--muted)" : msg.startsWith("Cuenta creada") ? "var(--ok)" : "var(--err)"
-          }}>{msg}</div>}
         </form>
-        <div className="hr-text">o</div>
-        <div className="small-muted">¿Ya tienes cuenta? <Link href="/ui">Accede aquí</Link></div>
       </div>
-    </main>
+    </div>
   );
 }

@@ -49,7 +49,7 @@ body {
   --muted: #7a7f79;
   --border: #e8e3d9;
   --chip: #f0ece3;
-  --acc: #b45309; /* ámbar tostado */
+  --acc: #b45309;
   --acc2: #059669;
   --ok: #15803d;
   --err: #b91c1c;
@@ -187,6 +187,9 @@ body {
   border-radius: 18px;
   box-shadow: var(--shadow);
   padding: 18px 16px;
+  min-height: 86dvh; /* altura estable para que el header/toolbars no “bailen” */
+  display: flex;
+  flex-direction: column;
 }
 
 /* Header + brand */
@@ -197,11 +200,7 @@ body {
   justify-content: space-between;
   margin-bottom: 12px;
 }
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
+.brand { display: flex; align-items: center; gap: 10px; }
 .title { font-weight: 800; letter-spacing: .3px; font-size: 20px; }
 .badge {
   padding: 4px 8px; border-radius: 999px; background: var(--chip);
@@ -218,6 +217,37 @@ body {
 .tab.active {
   background: linear-gradient(90deg, color-mix(in oklab, var(--acc) 18%, transparent), color-mix(in oklab, var(--acc2) 18%, transparent));
   border-color: color-mix(in oklab, var(--acc) 40%, var(--border));
+}
+
+/* ===== Panel ESTABLE para cada vista */
+.shell > section.card {
+  min-height: 560px;              /* <- altura fija por vista */
+  display: flex;
+  flex-direction: column;
+}
+.panel, .stable {                 /* alias por si lo usas manual */
+  min-height: 560px;
+  display: flex;
+  flex-direction: column;
+}
+.panel-body {
+  flex: 1;                        /* el contenido crece */
+  min-height: 0;
+}
+/* contenedor scroll opcional dentro del body */
+.scroll-area {
+  height: 100%;
+  overflow: auto;
+  border-radius: 12px;
+  background: var(--chip);
+  border: 1px solid var(--border);
+  padding: 8px;
+}
+.panel-actions {
+  margin-top: auto;               /* botones pegados abajo */
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
 }
 
 /* Cards, grid, rows */
@@ -287,7 +317,7 @@ body {
 a { color: var(--acc); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
-/* ===== Login/Registro centrado (vista /ui y /ui/register) */
+/* ===== Login/Registro centrado */
 .center-wrap {
   min-height: 100dvh;
   display: grid;
@@ -299,12 +329,12 @@ a:hover { text-decoration: underline; }
     var(--bg);
 }
 .center-card {
-  width: min(420px, 92vw);
+  width: min(460px, 92vw);
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 18px;
   box-shadow: var(--shadow);
-  padding: 18px;
+  padding: 20px;
 }
 .center-card .title { font-size: 22px; font-weight: 800; margin-bottom: 10px; }
 
